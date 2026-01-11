@@ -1,478 +1,40 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ClockState, WeatherData, WeatherCondition } from '../types';
+import { SPRITES, PALETTE, PixelGrid } from './PixelRabbitSprites';
 
 interface RabbitProps {
   clockState: ClockState;
   weather: WeatherData | null;
 }
 
-// --- CONFIGURATION ---
-// Grid: 64x64
-// Style: "Soft Pixel" - Colored outlines (Anti-aliased feel), No harsh blacks.
-
-type PixelGrid = string[];
-
-const PALETTE: Record<string, string> = {
-  '.': 'transparent',
-  
-  // BUNNY
-  'W': '#ffffff', // White Fur
-  'S': '#94a3b8', // Fur Shadow/Outline (Soft Blue-Grey)
-  'P': '#fbcfe8', // Pink (Ear Inner / Cheeks)
-  'D': '#f472b6', // Dark Pink (Ear Outline)
-  'E': '#334155', // Eyes (Dark Slate - Softer than black)
-  '-': '#334155', // Closed Eye
-
-  // PROPS - CLOTHES (BLUE)
-  'B': '#60a5fa', // Blue Light
-  'N': '#2563eb', // Blue Shadow/Outline
-
-  // PROPS - ACCESSORIES (RED)
-  'R': '#f87171', // Red Light
-  'K': '#dc2626', // Red Shadow/Outline
-
-  // PROPS - OBJECTS (ORANGE/YELLOW)
-  'O': '#fb923c', // Orange
-  'Q': '#ea580c', // Orange Shadow
-  'Y': '#facc15', // Yellow
-  'Z': '#ca8a04', // Yellow Shadow
-
-  // PROPS - SNOWMAN
-  'M': '#f1f5f9', // Snow White
-  'I': '#cbd5e1', // Snow Shadow
-
-  // PROPS - MISC
-  'T': '#94a3b8', // String
-  'G': '#475569', // Dark Grey (Road/Tires)
-  'L': '#0f172a', // Black/Text (High contrast for glasses)
-};
-
-// Helper to generate empty space
-const E = "................................................................"; 
-
-// --- SPRITES (64x64) ---
-// The rabbit acts in the bottom center (~32x32 area).
-// Props can extend anywhere.
-
-const SPRITES: Record<string, PixelGrid[]> = {
-  IDLE: [
-    [
-      ...Array(34).fill(E),
-      "...........................SSSS...SSSS..........................", // Ear Tips
-      "..........................SWWWDS.SWWWDS.........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "...........................SWWDS.SWWDS..........................",
-      "............................SSSS..SSSS..........................",
-      "..........................SSSSSSSSSSSSSS........................", // Head Top
-      ".........................SWWWWWWWWWWWWWWS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWEWWWWWWWWWWEWWWS.....................", // Eyes
-      ".......................SWWWEWWWWWWWWWWEWWWS.....................",
-      ".......................SWWWWWWWPPWWPPWWWWWS.....................", // Cheeks
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".........................SSSSSSSSSSSSSSSS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................", // Body
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWSSSSSWWWWWWSSSSSWS.....................", // Arms (Soft outline)
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      "........................SSSWWWWWWWWWWWWSSS......................",
-      "..........................SWSSSWWWWSSSWS........................", // Feet
-      "..........................SWS.SWWWWS.SWS........................",
-      "...........................SS..SSSS..SS.........................",
-      "................................................................",
-      "................................................................",
-    ],
-    // Blink Frame
-    [
-      ...Array(34).fill(E),
-      "...........................SSSS...SSSS..........................",
-      "..........................SWWWDS.SWWWDS.........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "...........................SWWDS.SWWDS..........................",
-      "............................SSSS..SSSS..........................",
-      "..........................SSSSSSSSSSSSSS........................",
-      ".........................SWWWWWWWWWWWWWWS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWW--WWWWWWWW--WWWS.....................", // Eyes Closed
-      ".......................SWWW--WWWWWWWW--WWWS.....................",
-      ".......................SWWWWWWWPPWWPPWWWWWS.....................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".........................SSSSSSSSSSSSSSSS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWSSSSSWWWWWWSSSSSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      "........................SSSWWWWWWWWWWWWSSS......................",
-      "..........................SWSSSWWWWSSSWS........................",
-      "..........................SWS.SWWWWS.SWS........................",
-      "...........................SS..SSSS..SS.........................",
-      "................................................................",
-      "................................................................",
-    ]
-  ],
-
-  SLEEP: [
-    [
-      ...Array(40).fill(E),
-      "................................................................",
-      "...................................NNNN.........................", // Cap Tip
-      "..................................NBBBBN........................",
-      ".................................NBBBBBBN.......................",
-      "................................NBBBBBBBBN......................",
-      "...............................SWWWWWWWWWWS.....................",
-      "..............................SWWWWWWWWWWWWS....................",
-      ".............................SWWW--WWWWW--WWS...................", // Sleeping Face
-      ".............................SWWWWWWWWWWWWWWS...................",
-      ".............................SWWWWWPPWWWPPWWS...................",
-      "............................SWWWWWWWWWWWWWWWWS..................",
-      "...........................SWWWWWWWWWWWWWWWWWWS.................",
-      "..........................SWWWWWWWWWWWWWWWWWWWWS................",
-      "..........................SWWWWWWWWWWWWWWWWWWWWS................",
-      "..........................SWWWWWWWWWWWWWWWWWWWWS................",
-      "...........................SWWWWWWWWWWWWWWWWWWS.................",
-      "...........................NBNWWWWWWWWWWWWWWWWS.................", // Cap Tail on back
-      "...........................NBN...SSSSSSSSSSSSSS.................", // Loaf shape
-      "..........................NBN...................................",
-      "..........................NNN...................................",
-      "................................................................",
-      "................................................................",
-      "................................................................",
-    ]
-  ],
-
-  STORY: [
-    [
-      ...Array(30).fill(E),
-      "...........................SSSS...SSSS..........................",
-      "..........................SWWWDS.SWWWDS.........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPNNNWWPPD.........................", // Glasses Strap
-      "..........................SLLLLLLLLLLLLS........................", // Glasses Rim
-      "..........................SLLLLLLLLLLLLS........................",
-      "..........................SWWWWWWWWWWWWS........................",
-      "..........................SSSSSSSSSSSSSS........................",
-      ".........................SWWWWWWWWWWWWWWS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWLWWWWWWWWWWEWWWS.....................", // Lenses
-      ".......................SWWWLWWWWWWWWWWEWWWS.....................",
-      ".......................SWWWWWWWPPWWPPWWWWWS.....................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SSWWWWWWWWWWWWWWWWSS.....................",
-      "......................SWSNNNNNNNNNNNNNNNNSWS....................", // Arms holding book
-      "......................SWSNOOOOOOOOOOOOOONSWS....................", // Book Cover
-      "......................SWSNOQQQQQQQQQQQQONSWS....................", // Pages
-      "......................SWSNOQWWWWWWWWWWQONSWS....................",
-      "......................SWSNOQLLLL..LLLLQONSWS....................", // Text
-      "......................SWSNOQLLLL..LLLLQONSWS....................",
-      ".......................SSNOQWWWWWWWWWWQONSS.....................",
-      "..........................NOOOOOOOOOOOOOON......................",
-      "..........................SWSSSWWWWSSSWS........................",
-      "..........................SWS.SWWWWS.SWS........................",
-      "...........................SS..SSSS..SS.........................",
-      "................................................................",
-      "................................................................",
-      "................................................................",
-    ]
-  ],
-
-  KITE: [
-    [
-      ".................................................K..............", // 0
-      "................................................KRK.............", // 1
-      "...............................................KRRRK............", // 2
-      "..............................................KRRRRRK...........", // 3
-      ".............................................KRRRRRRRK..........", // 4 - Kite
-      "..............................................KRRRRRK...........", // 5
-      "...............................................KRRRK............", // 6
-      "................................................KRK.............", // 7
-      ".................................................K..............", // 8
-      "................................................T...............", // 9 - String
-      "...............................................T................", // 10
-      "..............................................T.................", // 11
-      ".............................................T..................", // 12
-      "............................................T...................", // 13
-      "...........................................T....................", // 14
-      "..........................................T.....................", // 15
-      ".........................................T......................", // 16
-      "........................................T.......................", // 17
-      ".......................................T........................", // 18
-      "......................................T.........................", // 19
-      ".....................................T..........................", // 20
-      "....................................T...........................", // 21
-      "...........................SSSS....T..SSSS......................", // 22
-      "..........................SWWWDS..T..SWWWDS.....................", // 23
-      "..........................SWWPPDS.T.SWWPPD......................",
-      "..........................SWWPPDS.T.SWWPPD......................",
-      "..........................SWWPPDS.T.SWWPPD......................",
-      "..........................SWWPPDS.T.SWWPPD......................",
-      "...........................SWWDS..T..SWWDS......................",
-      "............................SSSS..T...SSSS......................",
-      "..........................SSSSSSSSTSSSSSS.......................",
-      ".........................SWWWWWWWWTWWWWWS.......................",
-      "........................SWWWWWWWWWTWWWWWWS......................",
-      "........................SWWWWWWWWWTWWWWWWS......................",
-      ".......................SWWWEWWWWWWTWWEWWWS......................",
-      ".......................SWWWEWWWWWWTWWEWWWS......................",
-      ".......................SWWWWWWWPPWTWPPWWWS......................",
-      "........................SWWWWWWWWWTWWWWWWS......................",
-      ".........................SSSSSSSSSTSSSSSS.......................",
-      "........................SWWWWWWWWWTWWWWWWS......................",
-      ".......................SWWWWWWWWWWTWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWTWWWWWWWS.....................",
-      ".......................SWSSSSSWWWWTWWSSSSSWS....................",
-      ".......................SWSWWWSSSSSTSSWWWSWS.....................",
-      ".......................SWSWWWSSSSS TSSWWWSWS....................", // Holding String
-      "........................SSSWWWWWWWWWWWWSSS......................",
-      "..........................SWSSSWWWWSSSWS........................",
-      "..........................SWS.SWWWWS.SWS........................",
-      "...........................SS..SSSS..SS.........................",
-      "................................................................",
-    ]
-  ],
-
-  SNOWMAN: [
-    [
-      ...Array(25).fill(E),
-      "...........................SSSS.................................",
-      "..........................SWWWDS................................",
-      "..........................SWWPPDS...........NNNN................",
-      "..........................SWWPPDS..........NBBBBN...............", // Snowman Hat
-      "..........................SWWPPDS.........NBBBBBBN..............",
-      "..........................SWWPPDS.........NMMMMMMN..............",
-      "...........................SWWDS..........NMIMMMIN..............",
-      "............................SSSS..........NMMMMMMN..............",
-      "..........................SSSSSSSS........NMMQMMMN..............", // Nose
-      ".........................SWWWWWWWS........NMMMMMMN..............",
-      "........................SWWWWWWWWWS......NMMMMMMMMN.............",
-      ".......................SWWWWWWWWWWWS.....NMMMMMMMMN.............",
-      ".......................SWWEWWWWEWWWS.....NMIIMMIIMN.............", // Buttons
-      ".......................SWWEWWWWEWWWS.....NMMMMMMMMN.............",
-      ".......................SWWWWPPWWWWWS.....NMMMMMMMMN.............",
-      "........................SWWWWWWWWWS.......NNNNNNNN..............",
-      ".........................SSSSSSSSS.......NMMMMMMMMN.............",
-      "........................SWWWWWWWWWS......NMMMMMMMMN.............",
-      ".......................SWWWWWWWWWWWS.....NMMMMMMMMN.............",
-      ".......................SWWWWWWWWWWWS.....NMIIMMIIMN.............",
-      ".......................SWSSSSSWSSSWS.....NMMMMMMMMN.............",
-      ".......................SWSWWWSSWWSWS.....NMMMMMMMMN.............",
-      ".......................SWSWWWSSWWSWS.....NMMMMMMMMN.............",
-      "........................SSSWWWWWSSS.......NNNNNNNN..............",
-      "..........................SWSSSWWS..............................",
-      "..........................SWS.SWS...............................",
-      "...........................SS..SS...............................",
-      "................................................................",
-    ]
-  ],
-
-  SNOW: [
-    [
-      ...Array(30).fill(E),
-      "...........................SSSS...SSSS..........................",
-      "..........................SWWWDS.SWWWDS.........................",
-      "..........................SWWPPNNNWWPPD.........................",
-      "..........................NBBBBBBBBBBBN.........................", // Beanie
-      "..........................NBBBBBBBBBBBN.........................",
-      "..........................NBNNBNNNNBNBN.........................",
-      "..........................NBBBBBBBBBBBN.........................",
-      "...........................SWWWWWWWWWS..........................",
-      "..........................SSSSSSSSSSSS..........................",
-      ".........................SWWWWWWWWWWWWS.........................",
-      "........................SWWWWWWWWWWWWWWS........................",
-      ".......................SWWWWWWWWWWWWWWWWS.......................",
-      ".......................SWWWEWWWWWWWWWWEWS.......................",
-      ".......................SWWWEWWWWWWWWWWEWS.......................",
-      ".......................SWWWWWWWPPWWPPWWWS.......................",
-      "........................KKKKKKKKKKKKKKKK........................", // Scarf
-      "........................KRRRRRRRRRRRRRRK........................",
-      ".......................SWWWWWWWWWWWWWWWWS.......................",
-      ".......................SWWWWWWWWWWWWWWWWS.......................",
-      ".......................SWWWWWWWWWWWWWWWWS.......................",
-      ".......................SWSSSSSWWWWWWSSSSSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      "........................SSSWWWWWWWWWWWWSSS......................",
-      "..........................SWS.KRK.S.SWS.........................", // Scarf tails
-      "..........................SWS.KRK.S.SWS.........................",
-      "...........................SS..K...SS...........................",
-      "................................................................",
-      "................................................................",
-    ]
-  ],
-
-  CAR: [
-    [
-      ...Array(38).fill(E),
-      ".............................SSSS....SSSS.......................",
-      "............................SWWWDS..SWWWDS......................",
-      "............................SWWPPDS.SWWPPD......................",
-      "............................SWWPPDS.SWWPPD......................",
-      "............................SWWWWWWWWWWWWS......................",
-      "...........................SWWWWWWWWWWWWWWS.....................",
-      "...........................SWWEWWWWWWWWEWWS.....................",
-      "...........................SWWWWWWWWWWWWWWS.....................",
-      "..........................NNNBBBBBBBBBBNNN......................", // Windshield
-      ".........................NMMMMMMMMMMMMMMMMN.....................", // Glass
-      "........................NBBBBBBBBBBBBBBBBBBN....................", // Car Hood
-      ".......................NBBBBBBBBBBBBBBBBBBBBN...................",
-      "......................NYBBBBBBBBBBBBBBBBBBBBRN..................", // Lights
-      "......................NBBBBBBBBBBBBBBBBBBBBBBN..................",
-      "......................NGGGNNNNNNNNNNNNNNNNGGGN..................", // Wheels
-      "......................NGGG................GGGN..................",
-      "................................................................",
-      "................................................................",
-    ]
-  ],
-
-  HOP: [
-    // Frame 1
-    [
-      ...Array(32).fill(E),
-      "...........................SSSS...SSSS..........................",
-      "..........................SWWWDS.SWWWDS.........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "..........................SWWPPDSWWPPD..........................",
-      "...........................SWWDS.SWWDS..........................",
-      "............................SSSS..SSSS..........................",
-      "..........................SSSSSSSSSSSSSS........................",
-      ".........................SWWWWWWWWWWWWWWS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWEWWWWWWWWWWEWWWS.....................",
-      ".......................SWWWEWWWWWWWWWWEWWWS.....................",
-      ".......................SWWWWWWWPPWWPPWWWWWS.....................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".........................SSSSSSSSSSSSSSSS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWSSSSSWWWWWWSSSSSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      "........................SSSWWWWWWWWWWWWSSS......................",
-      "..........................SWSSSWWWWSSSWS........................",
-      "..........................SWS.SWWWWS.SWS........................",
-      "...........................SS..SSSS..SS.........................",
-      "................................................................",
-    ],
-    // Frame 2 (Paws Up)
-    [
-      ...Array(32).fill(E),
-      "..........................SSSS......SSSS........................",
-      ".........................SWWWDS....SWWWDS.......................",
-      ".........................SWWPPDS...SWWPPD.......................",
-      ".........................SWWPPDS...SWWPPD.......................",
-      ".........................SWWPPDS...SWWPPD.......................",
-      ".........................SWWPPDS...SWWPPD.......................",
-      "..........................SWWDS.....SWWDS.......................",
-      "...........................SSSS......SSSS.......................",
-      "..........................SSSSSSSSSSSSSS........................",
-      ".........................SWWWWWWWWWWWWWWS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWEWWWWWWWWWWEWWWS.....................",
-      ".......................SWWWEWWWWWWWWWWEWWWS.....................",
-      ".......................SWWWWWWWPPWWPPWWWWWS.....................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".........................SSSSSSSSSSSSSSSS.......................",
-      "........................SWWWWWWWWWWWWWWWWS......................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWWWWWWWWWWWWWWWWWWS.....................",
-      ".......................SWSSSSSWWWWWWSSSSSWS.....................", // Paws Up
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      ".......................SWSWWWSSSSSSSSWWWSWS.....................",
-      "........................SSSWWWWWWWWWWWWSSS......................",
-      "..........................SWSSSWWWWSSSWS........................",
-      "..........................SWS.SWWWWS.SWS........................",
-      "...........................SS..SSSS..SS.........................",
-      "................................................................",
-    ]
-  ],
-  
-  UMBRELLA: [
-      [
-        ...Array(20).fill(E),
-        "..............................NNNN..............................",
-        ".............................NBBBBN.............................",
-        "............................NBBBBBBN............................",
-        "...........................NBBBBBBBBN...........................",
-        "..........................NBBBBBBBBBBN..........................",
-        ".........................NBBBBBBBBBBBBN.........................",
-        "........................NBBBBBBBBBBBBBBN........................",
-        ".......................NBBBBBBBBBBBBBBBBN.......................",
-        "........................NBBBBBBBBBBBBBBN........................",
-        ".........................N......T.......N.......................",
-        "........................NNN.....T......NNN......................",
-        ".......................SWWDS....T....SWWDS......................",
-        ".......................SWWDS....T....SWWDS......................",
-        ".......................SWWDSNNNNTNNNNSWWDS......................",
-        ".......................SWWWWWWWWWWWWWWWWS.......................",
-        "......................SWWWWWWWWWWWWWWWWWWS......................",
-        "......................SWWWWWWWWWWWWWWWWWWS......................",
-        "......................SWWWEWWWWWWWWWWEWWWS......................",
-        "......................SWWWEWWWWWWWWWWEWWWS......................",
-        "......................SWWWWWWWPPWWPPWWWWWS......................",
-        ".......................SWWWWWWWWWWWWWWWWS.......................",
-        ".......................SWWWWWWWWWWWWWWWWS.......................",
-        "......................SWWWWWWWWWWWWWWWWWWS......................",
-        "......................SWSSSSSWWWWWWWWSSSSWS.....................",
-        "......................SWSWWWSSSSSSSSWWWWWSWS....................",
-        ".......................SSSWWWWWWWWWWWWWWSSS.....................",
-        ".........................SWSSSWWWWSSSSWS........................",
-        ".........................SWS.SWWWWS..SWS........................",
-        "..........................SS..SSSS...SS.........................",
-        "................................................................",
-        "................................................................",
-        "................................................................",
-        "................................................................",
-      ]
-  ]
-};
-
 const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
   const isRain = weather?.condition === WeatherCondition.RAIN || weather?.condition === WeatherCondition.STORM;
   const isSnow = weather?.condition === WeatherCondition.SNOW;
   const isWindy = weather?.condition === WeatherCondition.WINDY;
 
+  // Animation State
   const [frameIdx, setFrameIdx] = useState(0);
-  const [action, setAction] = useState<'IDLE' | 'HOP' | 'SLEEP' | 'UMBRELLA' | 'CAR' | 'STORY' | 'SNOW' | 'SNOWMAN' | 'KITE'>('IDLE');
-  const [posX, setPosX] = useState(50); 
-  const [posY, setPosY] = useState(20); 
-  const [direction, setDirection] = useState(1);
+  const [action, setAction] = useState<'IDLE' | 'HOP' | 'SLEEP' | 'UMBRELLA' | 'STORY' | 'CAR' | 'SNOW' | 'SNOWMAN' | 'KITE' | 'LOVE'>('IDLE');
+  const [posX, setPosX] = useState(50); // %
+  const [posY, setPosY] = useState(20); // % from bottom
+  const [zIndex, setZIndex] = useState(40); // Layer depth (20=Behind text, 40=In front)
+  const [direction, setDirection] = useState(1); // 1 = Right, -1 = Left
   const [isMoving, setIsMoving] = useState(false);
   
+  // Logic Refs
   const lastLogicTick = useRef(0);
-  const animationTimer = useRef<NodeJS.Timeout | null>(null);
+  const animationTimer = useRef<number | null>(null);
 
+  // --- RENDERER ---
   const renderSprite = useCallback((grid: PixelGrid) => {
     const pixels: React.ReactNode[] = [];
-    const size = 64; 
+    const height = grid.length;
+    const width = grid[0].length;
     
-    if (!grid) return null;
-
     grid.forEach((row, y) => {
-      if (!row) return;
       for (let x = 0; x < row.length; x++) {
         const char = row[x];
-        if (char !== '.' && char !== ' ') {
+        if (char !== '.') {
           const color = PALETTE[char] || '#000';
           pixels.push(
             <rect 
@@ -487,14 +49,15 @@ const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
     });
 
     return (
-      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full shape-rendering-crispEdges">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full shape-rendering-crispEdges">
         {pixels}
       </svg>
     );
   }, []);
 
+  // --- BRAIN: Game Loop ---
   useEffect(() => {
-    const tickRate = 200; 
+    const tickRate = 250; // 4 FPS
 
     const tick = () => {
       const now = Date.now();
@@ -505,30 +68,46 @@ const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
         
         let nextAction: typeof action = 'IDLE';
         
-        // Priority 1: State
+        // Vertical Wander & Depth Logic
+        // Expanded range (10-45%) to allow clear distinction between foreground/background
+        const newY = Math.max(10, Math.min(45, posY + (Math.random() * 12 - 6)));
+        setPosY(newY);
+
+        // Depth Logic: Higher Y (further up screen) = Background (z-20), Lower Y = Foreground (z-40)
+        // Threshold at 30% from bottom
+        const newZ = newY > 30 ? 20 : 40;
+        setZIndex(newZ);
+
+        // Collision Avoidance Logic
+        // Text approximates center 30-70% X.
+        const inTextZone = posX > 25 && posX < 75;
+        const isInFront = newZ === 40;
+
+        // Priority Overrides
         if (clockState === ClockState.SLEEP || clockState === ClockState.NAP) {
            nextAction = 'SLEEP';
-        } 
-        else if (clockState === ClockState.STORY) {
-            nextAction = 'STORY';
-        }
-        // Priority 2: Weather
-        else if (isSnow) {
-            nextAction = Math.random() > 0.5 ? 'SNOWMAN' : 'SNOW';
-        }
-        else if (isWindy) {
-            nextAction = 'KITE';
-        }
-        else if (isRain) {
-            nextAction = 'UMBRELLA';
-        }
-        // Priority 3: Random Idle Fun
-        else {
+        } else if (clockState === ClockState.STORY) {
+           nextAction = 'STORY';
+        } else if (isRain) {
+           nextAction = 'UMBRELLA';
+        } else if (isSnow) {
+           nextAction = Math.random() > 0.7 ? 'SNOWMAN' : 'SNOW';
+        } else {
+           // WAKE / QUIET Randoms
            const rand = Math.random();
-           if (rand > 0.90) nextAction = 'CAR'; 
-           else if (rand > 0.40) {
-             nextAction = 'HOP'; 
-             // Random Direction
+           
+           if (isWindy && rand > 0.5) {
+             nextAction = 'KITE';
+           } else if (rand > 0.95) {
+             nextAction = 'CAR'; // Very rare
+           } else if (rand > 0.90) {
+             nextAction = 'LOVE'; // Rare heart mode
+           } else if (rand > 0.80) {
+             nextAction = 'KITE'; // Less rare
+           } else if (rand > 0.40) {
+             nextAction = 'HOP'; // Move around
+             
+             // Change direction randomly
              if (Math.random() > 0.5) {
                  const newDir = Math.random() > 0.5 ? 1 : -1;
                  if (posX < 10) setDirection(1);
@@ -538,36 +117,44 @@ const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
            } else {
              nextAction = 'IDLE';
            }
+
+           // Force move if idling in front of text
+           if (isInFront && inTextZone && nextAction === 'IDLE') {
+               // 80% chance to force hop if blocking text
+               if (Math.random() < 0.8) {
+                   nextAction = 'HOP';
+                   // Bias direction away from center
+                   if (posX > 50) setDirection(1); // Go right
+                   else setDirection(-1); // Go left
+               }
+           }
         }
 
         setAction(nextAction);
-        setIsMoving(nextAction === 'HOP' || nextAction === 'CAR');
+        setIsMoving(nextAction === 'HOP' || nextAction === 'CAR' || nextAction === 'SNOW' || nextAction === 'KITE');
       }
 
+      // 2. ANIMATION UPDATE
       setFrameIdx(prev => prev + 1);
 
       // 3. PHYSICS UPDATE
       if (isMoving) {
-         if (action === 'HOP') {
-             // Linear Movement
-             setPosX(prev => Math.min(95, Math.max(5, prev + (direction * 0.8))));
-             
-             // Very subtle visual bob
-             const bounce = (frameIdx % 2 === 0) ? 0 : 0.5;
-             setPosY(20 + bounce);
-
+         if (action === 'HOP' || action === 'SNOW') {
+             const currentFrame = frameIdx % 4; // 4 frames animation loop
+             // Move on certain frames
+             if (currentFrame === 1 || currentFrame === 3) { 
+                 setPosX(prev => Math.min(95, Math.max(5, prev + (direction * 1.5))));
+             }
          } else if (action === 'CAR') {
              setPosX(prev => {
-                const next = prev + (direction * 1.5);
+                const next = prev + (direction * 2.5);
                 if (next > 95) setDirection(-1);
                 if (next < 5) setDirection(1);
                 return next;
              });
-             setPosY(20 + (frameIdx % 2 === 0 ? 0.2 : 0));
+         } else if (action === 'KITE') {
+             setPosX(prev => Math.min(95, Math.max(5, prev + (direction * 0.5)))); // Slow drift
          }
-      } else {
-          // IDLE Reset
-          setPosY(20); 
       }
     };
 
@@ -577,9 +164,11 @@ const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
     };
   }, [clockState, isRain, isSnow, isWindy, isMoving, direction, action, frameIdx, posX, posY]);
 
+  // --- SPRITE SELECTION ---
   const getCurrentSprite = () => {
     let spriteSet = SPRITES.IDLE;
     
+    // Map actions to sprite sets
     if (action === 'SLEEP') spriteSet = SPRITES.SLEEP;
     else if (action === 'HOP') spriteSet = SPRITES.HOP;
     else if (action === 'UMBRELLA') spriteSet = SPRITES.UMBRELLA;
@@ -588,50 +177,54 @@ const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
     else if (action === 'SNOW') spriteSet = SPRITES.SNOW;
     else if (action === 'SNOWMAN') spriteSet = SPRITES.SNOWMAN;
     else if (action === 'KITE') spriteSet = SPRITES.KITE;
-
-    if (action === 'IDLE' && frameIdx % 20 === 0) {
-        if (SPRITES.IDLE[1]) return SPRITES.IDLE[1];
-    }
+    else if (action === 'LOVE') spriteSet = SPRITES.LOVE;
 
     const index = frameIdx % spriteSet.length;
     return spriteSet[index];
   };
 
   const sprite = getCurrentSprite();
+  
+  // Adjust container width for wider sprites
+  const widthRatio = (action === 'IDLE' || action === 'LOVE' || action === 'SNOWMAN') ? '180px' : '240px'; 
+  const heightRatio = '240px'; 
 
+  // --- PARTICLES ---
   const renderZzz = () => {
      if (action !== 'SLEEP') return null;
      const step = Math.floor(frameIdx / 4) % 3; 
      return (
-       <div className="absolute top-[35%] right-[25%] pointer-events-none">
-         {step >= 0 && <div className="absolute -top-1 right-0 w-1 h-1 bg-white opacity-80" />}
-         {step >= 1 && <div className="absolute -top-3 right-2 w-1 h-1 bg-white opacity-60" />}
-         {step >= 2 && <div className="absolute -top-5 right-4 w-2 h-2 bg-white opacity-40 text-[8px] leading-none font-pixel text-blue-200">z</div>}
+       <div className="absolute top-10 right-10 -mt-2 -mr-2 pointer-events-none z-50">
+         {step >= 0 && <div className="absolute top-4 right-2 w-2 h-2 bg-white opacity-80" />}
+         {step >= 1 && <div className="absolute top-0 right-6 w-3 h-3 bg-white opacity-60" />}
+         {step >= 2 && <div className="absolute -top-4 right-10 w-4 h-4 bg-white opacity-40 text-[10px] leading-none font-pixel text-blue-200">z</div>}
        </div>
      );
   };
   
   return (
     <div 
-        className="absolute z-40 transition-all duration-300 ease-linear will-change-transform"
+        className="absolute transition-all duration-1000 ease-in-out will-change-transform"
         style={{ 
             left: `${posX}%`, 
-            bottom: `${posY}%`,
+            bottom: `${posY}%`, 
+            zIndex: zIndex,
             transform: `translateX(-50%)`,
-            // Canvas size increased to handle the 64x64 density while keeping rabbit visible
-            width: '320px', 
-            height: '320px'
+            width: widthRatio, 
+            height: heightRatio
         }}
     >
+        {/* SPRITE CONTAINER */}
         <div 
           className="relative w-full h-full"
-          style={{ transform: `scaleX(${direction})` }}
+          style={{ transform: `scaleX(${direction})` }} // Flip X for direction
         >
             {renderSprite(sprite)}
             {renderZzz()}
         </div>
 
-        <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-20 h-3 bg-black/40 rounded-full blur-[4px]" />
+        {/* SOFT SHADOW */}
+        <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 w-20 h-3 bg-black/40 rounded-full blur-[4px]" />
     </div>
   );
 };
