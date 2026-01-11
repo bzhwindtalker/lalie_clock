@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Radical Clock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              'vcr': ['"VT323"', 'monospace'],
+              'pixel': ['"Press Start 2P"', 'cursive'],
+            },
+            colors: {
+              'neon-pink': '#ff00ff',
+              'neon-blue': '#00ffff',
+              'neon-green': '#39ff14',
+              'deep-purple': '#240046',
+            },
+            animation: {
+              'blob': 'blob 10s infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'grid-scroll': 'grid-scroll 1s linear infinite',
+              'twinkle': 'twinkle 4s ease-in-out infinite',
+              'rise-set': 'rise-set 10s ease-in-out infinite alternate',
+              'wave-slow': 'wave 20s linear infinite',
+              'wave-slower': 'wave 30s linear infinite reverse',
+              'rabbit-wander': 'wander 20s linear infinite',
+              'rabbit-breath': 'breath 3s ease-in-out infinite',
+              'rabbit-bounce': 'bounce-wild 0.5s infinite',
+              'float-up': 'float-up 2s linear infinite',
+              'disco': 'disco 2s linear infinite',
+              'spin-slow': 'spin 240s linear infinite',
+            },
+            keyframes: {
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
+              },
+              'grid-scroll': {
+                '0%': { backgroundPosition: '0 0' },
+                '100%': { backgroundPosition: '0 40px' },
+              },
+              'twinkle': {
+                '0%, 100%': { opacity: '0.8', transform: 'scale(1)' },
+                '50%': { opacity: '0.3', transform: 'scale(0.8)' },
+              },
+              'rise-set': {
+                '0%': { transform: 'translateY(0)' },
+                '100%': { transform: 'translateY(-10px)' },
+              },
+              'wave': {
+                '0%': { transform: 'translateX(0)' },
+                '100%': { transform: 'translateX(-50%)' },
+              },
+              'wander': {
+                '0%': { transform: 'translateX(-120%) scaleX(1)' },
+                '45%': { transform: 'translateX(20vw) scaleX(1)' },
+                '50%': { transform: 'translateX(20vw) scaleX(-1)' },
+                '95%': { transform: 'translateX(-120%) scaleX(-1)' },
+                '100%': { transform: 'translateX(-120%) scaleX(1)' },
+              },
+              'breath': {
+                '0%, 100%': { transform: 'scaleY(1)' },
+                '50%': { transform: 'scaleY(0.95)' },
+              },
+              'bounce-wild': {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
+              'float-up': {
+                '0%': { transform: 'translateY(0) translateX(0)', opacity: '0' },
+                '20%': { opacity: '1' },
+                '100%': { transform: 'translateY(-40px) translateX(10px)', opacity: '0' },
+              },
+              'disco': {
+                '0%': { filter: 'hue-rotate(0deg)' },
+                '100%': { filter: 'hue-rotate(360deg)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #000;
+        overflow: hidden; /* Prevent scrolling on small touch screens */
+        user-select: none; /* Prevent selection */
+        -webkit-user-select: none;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

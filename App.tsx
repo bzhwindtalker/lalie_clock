@@ -1,0 +1,316 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import WaveBackground from './components/WaveBackground';
+import TimeDisplay from './components/TimeDisplay';
+import SettingsPanel from './components/SettingsPanel';
+import PixelRabbit from './components/PixelRabbit';
+import { loadConfig, saveConfig } from './services/storageService';
+import { fetchWeather } from './services/weatherService';
+import { AppConfig, ClockState, WeatherData, WeatherCondition } from './types';
+
+const getMinutes = (h: number, m: number) => h * 60 + m;
+
+const App: React.FC = () => {
+  const [time, setTime] = useState(new Date());
+  const [config, setConfig] = useState<AppConfig>(loadConfig());
+  
+  // State Management
+  const [clockState, setClockState] = useState<ClockState>(ClockState.WAKE);
+  const [overrideState, setOverrideState] = useState<ClockState | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  
+  // Track previous scheduled state to detect changes
+  const prevScheduledStateRef = useRef<ClockState | null>(null);
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+
+  // Update time loop
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Weather Fetch Loop (Real Data)
+  useEffect(() => {
+    if (config.demoMode) return; // Skip real fetch in demo mode
+
+    const getWeatherData = async () => {
+      // Pass the manual location config to the service
+      const data = await fetchWeather(config.location);
+      if (data) setWeather(data);
+    };
+
+    getWeatherData(); // Initial fetch
+    const weatherTimer = setInterval(getWeatherData, 30 * 60 * 1000);
+    return () => clearInterval(weatherTimer);
+  }, [config.demoMode, config.location]); // Re-fetch if location config changes
+
+  // Demo Mode Loop
+  useEffect(() => {
+    if (!config.demoMode) return;
+
+    let step = 0;
+    const demoSteps = [
+        // 1. Dawn (Sunrise) - Clear
+        { 
+            condition: WeatherCondition.CLEAR, 
+            temp: 15, 
+            sunriseOffset: -10 * 60 * 1000, 
+            sunsetOffset: 12 * 60 * 60 * 1000, 
+            moonPhase: 0.1, 
+            isDay: true 
+        },
+        // 2. Noon - Windy
+        { 
+            condition: WeatherCondition.WINDY, 
+            temp: 20, 
+            sunriseOffset: -6 * 60 * 60 * 1000, 
+            sunsetOffset: 6 * 60 * 60 * 1000, 
+            moonPhase: 0.25, 
+            isDay: true 
+        },
+        // 3. Dusk (Sunset) - Rain
+        { 
+            condition: WeatherCondition.RAIN, 
+            temp: 18, 
+            sunriseOffset: -12 * 60 * 60 * 1000, 
+            sunsetOffset: 15 * 60 * 1000, 
+            moonPhase: 0.5, 
+            isDay: true 
+        },
+        // 4. Night - Snow (Checking Snow Mode)
+        { 
+            condition: WeatherCondition.SNOW, 
+            temp: -2, 
+            sunriseOffset: 5 * 60 * 60 * 1000, 
+            sunsetOffset: -5 * 60 * 60 * 1000, 
+            moonPhase: 0.75, 
+            isDay: false 
+        },
+        // 5. Night - Storm
+        { 
+            condition: WeatherCondition.STORM, 
+            temp: 10, 
+            sunriseOffset: 3 * 60 * 60 * 1000, 
+            sunsetOffset: -8 * 60 * 60 * 1000, 
+            moonPhase: 0.9, 
+            isDay: false 
+        }
+    ];
+
+    const runDemoStep = () => {
+        const s = demoSteps[step % demoSteps.length];
+        const now = new Date();
+        setWeather({
+            condition: s.condition,
+            temp: s.temp,
+            sunrise: new Date(now.getTime() + s.sunriseOffset),
+            sunset: new Date(now.getTime() + s.sunsetOffset),
+            moonPhase: s.moonPhase,
+            isDay: s.isDay
+        });
+        step++;
+    };
+
+    runDemoStep(); // Run immediately
+    const demoTimer = setInterval(runDemoStep, 5000); // Change every 5 seconds
+
+    return () => clearInterval(demoTimer);
+  }, [config.demoMode]);
+
+  // Calculate what the schedule says the state SHOULD be
+  const getScheduledState = useCallback(() => {
+    const currentMins = getMinutes(time.getHours(), time.getMinutes());
+    
+    // 1. Check Nap Override
+    const napStart = getMinutes(config.napTime.startHour, config.napTime.startMinute);
+    const napEnd = napStart + config.napDuration;
+    const isNapTime = napEnd >= napStart 
+        ? (currentMins >= napStart && currentMins < napEnd)
+        : (currentMins >= napStart || currentMins < napEnd);
+
+    if (isNapTime) return ClockState.NAP;
+
+    // 2. Standard Schedule Evaluation
+    const schedule = [
+        { state: ClockState.WAKE, mins: getMinutes(config.wakeTime.startHour, config.wakeTime.startMinute) },
+        { state: ClockState.QUIET, mins: getMinutes(config.quietTime.startHour, config.quietTime.startMinute) },
+        { state: ClockState.STORY, mins: getMinutes(config.storyTime.startHour, config.storyTime.startMinute) },
+        { state: ClockState.SLEEP, mins: getMinutes(config.sleepTime.startHour, config.sleepTime.startMinute) },
+    ];
+
+    schedule.sort((a, b) => a.mins - b.mins);
+
+    let active = schedule[schedule.length - 1]; 
+    for (let i = 0; i < schedule.length; i++) {
+        if (currentMins >= schedule[i].mins) {
+            active = schedule[i];
+        }
+    }
+    
+    return active.state;
+  }, [time, config]);
+
+  // Main Effect: Reconcile Schedule, Override, and Active State
+  useEffect(() => {
+    const scheduled = getScheduledState();
+    
+    // Initialize ref on first run if null
+    if (prevScheduledStateRef.current === null) {
+        prevScheduledStateRef.current = scheduled;
+    }
+
+    // Check if the scheduled state has changed since the last tick
+    if (prevScheduledStateRef.current !== scheduled) {
+        if (overrideState !== null) {
+            console.log("Schedule changed releasing override.");
+            setOverrideState(null);
+        }
+        prevScheduledStateRef.current = scheduled;
+    }
+
+    // Determine Final State
+    const finalState = overrideState || scheduled;
+    
+    if (finalState !== clockState) {
+        setClockState(finalState);
+    }
+
+    // Update Status Message based on Final State
+    switch(finalState) {
+        case ClockState.SLEEP: setStatusMessage("STAY IN BED"); break;
+        case ClockState.NAP: setStatusMessage("REST & RECHARGE"); break;
+        case ClockState.QUIET: setStatusMessage("QUIET PLAY ONLY"); break;
+        case ClockState.STORY: setStatusMessage("STORY TIME"); break;
+        case ClockState.WAKE: setStatusMessage("SYSTEMS ONLINE"); break;
+    }
+
+  }, [time, config, getScheduledState, overrideState, clockState]);
+
+  const handleSaveConfig = (newConfig: AppConfig) => {
+    setConfig(newConfig);
+    saveConfig(newConfig);
+    setShowSettings(false);
+  };
+
+  const handleToggleDemo = () => {
+    const newConfig = { ...config, demoMode: !config.demoMode };
+    setConfig(newConfig);
+    saveConfig(newConfig);
+  };
+
+  const closeSettings = () => {
+    setShowSettings(false);
+  };
+
+  const handleForceMode = (state: ClockState | null) => {
+    setOverrideState(state);
+  };
+
+  const [lastTap, setLastTap] = useState(0);
+  const handleScreenTap = () => {
+    const now = Date.now();
+    if (now - lastTap < 300) setShowSettings(true);
+    setLastTap(now);
+  };
+
+  const getBrightness = () => {
+    switch(clockState) {
+      case ClockState.SLEEP: return config.brightness.sleep;
+      case ClockState.QUIET: return config.brightness.quiet;
+      case ClockState.WAKE: return config.brightness.wake;
+      case ClockState.NAP: return config.brightness.nap;
+      case ClockState.STORY: return config.brightness.story;
+      default: return 100;
+    }
+  };
+
+  const currentBrightness = getBrightness();
+
+  return (
+    <div 
+      className="relative w-screen h-screen overflow-hidden cursor-none select-none touch-manipulation"
+      onClick={handleScreenTap}
+    >
+      {/* Background (Z-0) with Weather */}
+      <WaveBackground clockState={clockState} weather={weather} />
+
+      {/* Rabbit (Z-10) */}
+      <PixelRabbit clockState={clockState} weather={weather} />
+
+      {/* Content (Z-30) */}
+      <div className="relative z-30 flex flex-col items-center justify-center h-full w-full pointer-events-none">
+        <div className={`
+          text-2xl md:text-3xl font-pixel mb-4 text-center px-4 py-2 rounded border-4 transition-all duration-1000
+          ${clockState === ClockState.SLEEP ? 'text-red-500 border-red-900 bg-black/50' : ''}
+          ${clockState === ClockState.NAP ? 'text-blue-300 border-blue-900 bg-black/50' : ''}
+          ${clockState === ClockState.STORY ? 'text-purple-300 border-purple-900 bg-black/50' : ''}
+          ${clockState === ClockState.QUIET ? 'text-yellow-400 border-yellow-900 bg-black/50' : ''}
+          ${clockState === ClockState.WAKE ? 'text-neon-green border-green-900 bg-black/50' : ''}
+        `}>
+          {clockState === ClockState.SLEEP && "🌙 SLEEP MODE"}
+          {clockState === ClockState.NAP && "☁️ NAP TIME"}
+          {clockState === ClockState.QUIET && "🤫 QUIET MODE"}
+          {clockState === ClockState.STORY && "📖 STORY TIME"}
+          {clockState === ClockState.WAKE && "☀️ WAKE UP"}
+        </div>
+        
+        {/* Override Indicator */}
+        {overrideState && (
+            <div className="mb-2 text-neon-pink font-vcr text-sm animate-pulse">
+                ⚠ MANUAL OVERRIDE ACTIVE ⚠
+            </div>
+        )}
+
+        {/* Demo Indicator */}
+        {config.demoMode && (
+            <div className="mb-2 text-yellow-400 font-pixel text-xs animate-bounce bg-black/50 px-2 py-1 rounded">
+                DEMO MODE: WEATHER SIMULATION
+            </div>
+        )}
+
+        <TimeDisplay date={time} />
+
+        <div className="mt-4 flex flex-col items-center font-vcr text-white/50 text-xl tracking-widest animate-pulse px-4">
+          <div>{statusMessage}</div>
+          {weather && (
+             <div className="text-3xl mt-2 text-white/80 font-bold drop-shadow-md">
+               {weather.temp}°C {weather.condition}
+             </div>
+          )}
+        </div>
+      </div>
+
+      {/* GLOBAL DIMMER (Z-50) */}
+      <div 
+        className="absolute inset-0 bg-black pointer-events-none transition-opacity duration-1000 z-50"
+        style={{ opacity: 1 - (currentBrightness / 100) }}
+      />
+
+      {/* Settings Button (Z-55) */}
+      <button 
+        onClick={(e) => { e.stopPropagation(); setShowSettings(true); }}
+        className="absolute top-0 right-0 p-8 z-[55] text-white/30 hover:text-white transition-colors focus:outline-none active:scale-95"
+        aria-label="Settings"
+      >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 drop-shadow-md">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 018.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
+          </svg>
+      </button>
+
+      {/* Settings Modal (Z-60) */}
+      {showSettings && (
+        <SettingsPanel 
+          config={config} 
+          onSave={handleSaveConfig} 
+          onClose={closeSettings}
+          onPreview={handleForceMode}
+          onToggleDemo={handleToggleDemo}
+          activeMode={clockState}
+        />
+      )}
+    </div>
+  );
+};
+
+export default App;
