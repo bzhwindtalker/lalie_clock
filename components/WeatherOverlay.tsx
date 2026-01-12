@@ -9,10 +9,12 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
   if (condition === WeatherCondition.CLEAR) return null;
 
   // --- PRE-CALCULATE PARTICLE DATA ---
+  // OPTIMIZED FOR RASPBERRY PI ZERO 2W
+  // drastically reduced counts to prevent GPU hang
 
   // CLOUDS: Seamless loop
   const cloudData = useMemo(() => {
-    const cloudCount = 8;
+    const cloudCount = 4; // Reduced from 8
     return Array.from({ length: cloudCount }).map((_, i) => ({
       id: i,
       left: (i * (100 / cloudCount)) + (Math.random() * 5), 
@@ -25,7 +27,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
 
   // RAIN
   const rainData = useMemo(() => {
-    return Array.from({ length: 150 }).map((_, i) => ({
+    return Array.from({ length: 40 }).map((_, i) => ({ // Reduced from 150
       id: i,
       left: Math.random() * 100,
       delay: -(Math.random() * 2), 
@@ -36,10 +38,10 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
 
   // SNOW
   const snowData = useMemo(() => {
-    return Array.from({ length: 100 }).map((_, i) => ({
+    return Array.from({ length: 25 }).map((_, i) => ({ // Reduced from 100
       id: i,
       left: Math.random() * 100,
-      size: 6 + Math.random() * 6,
+      size: 4 + Math.random() * 4,
       delay: -(Math.random() * 10),
       duration: 3 + Math.random() * 5,
       opacity: 0.7 + Math.random() * 0.3
@@ -48,13 +50,13 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
 
   // WIND
   const windData = useMemo(() => {
-    return Array.from({ length: 25 }).map((_, i) => ({
+    return Array.from({ length: 8 }).map((_, i) => ({ // Reduced from 25
       id: i,
       top: Math.random() * 80 + 10,
       width: 150 + Math.random() * 250, // Longer streaks
       delay: -(Math.random() * 5),
       duration: 0.5 + Math.random() * 1.0,
-      opacity: 0.4 + Math.random() * 0.5 // Higher opacity
+      opacity: 0.3 + Math.random() * 0.3
     }));
   }, []);
 
@@ -63,25 +65,19 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
   const renderCloudShape = (type: string) => (
     <div className="relative">
        {/* Main Body */}
-       <div className="absolute w-32 h-12 bg-white rounded-full blur-[4px]" />
-       {/* Fluffs */}
-       <div className="absolute -top-6 left-4 w-16 h-16 bg-white rounded-full blur-[4px]" />
-       <div className="absolute -top-4 left-14 w-12 h-12 bg-white rounded-full blur-[4px]" />
-       <div className="absolute -top-3 left-20 w-10 h-10 bg-white/90 rounded-full blur-[4px]" />
-       {/* Shadow */}
-       <div className="absolute top-4 left-4 w-24 h-6 bg-gray-200/50 rounded-full blur-[6px]" />
+       <div className="absolute w-32 h-12 bg-white rounded-full blur-[2px]" />
+       {/* Fluffs - simplified for performance */}
+       <div className="absolute -top-6 left-4 w-16 h-16 bg-white rounded-full blur-[2px]" />
+       <div className="absolute -top-4 left-14 w-12 h-12 bg-white rounded-full blur-[2px]" />
     </div>
   );
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden select-none">
       
-      {/* ATMOSPHERIC FOG */}
+      {/* ATMOSPHERIC FOG - Simplified for Pi */}
       {condition === WeatherCondition.FOG && (
-        <div className="absolute inset-0 z-20 overflow-hidden">
-          <div className="absolute inset-[-20%] bg-white/40 blur-[80px] animate-fog-drift" />
-          <div className="absolute inset-[-20%] bg-gray-300/30 blur-[60px] animate-fog-drift-slow mix-blend-overlay" />
-        </div>
+        <div className="absolute inset-0 z-20 overflow-hidden bg-white/20" />
       )}
 
       {/* CLOUDS - Seamless Scrolling */}
@@ -126,7 +122,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
             {windData.map((line) => (
                <div 
                  key={`wind-${line.id}`}
-                 className="absolute h-1 bg-white/30 rounded-full blur-[1px] animate-wind-blow"
+                 className="absolute h-1 bg-white/30 rounded-full animate-wind-blow"
                  style={{
                     top: `${line.top}%`,
                     left: '-20%', // Start off screen
@@ -136,19 +132,6 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                     animationDelay: `${line.delay}s`
                  }}
                />
-            ))}
-            {/* Flying Debris/Leaves */}
-            {[...Array(12)].map((_, i) => (
-                <div 
-                  key={`leaf-${i}`}
-                  className="absolute w-3 h-3 bg-green-300 rounded-sm animate-debris-fly"
-                  style={{
-                    top: `${Math.random() * 100}%`,
-                    left: '-10%',
-                    animationDelay: `${Math.random() * 2}s`,
-                    animationDuration: `${0.8 + Math.random()}s`
-                  }}
-                />
             ))}
         </div>
       )}
@@ -163,30 +146,15 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                     style={{
                         left: `${drop.left}%`,
                         top: '-10%', // Start slightly above viewport to ensure animation entry
-                        width: '4px', // Thicker
-                        height: '40px', // Longer
+                        width: '3px', 
+                        height: '30px', 
                         opacity: drop.opacity,
-                        boxShadow: '0 0 8px #00ffff', // Stronger glow
+                        // Removed box-shadow for performance on Pi
                         animationDuration: `${drop.duration}s`,
                         animationDelay: `${drop.delay}s`
                     }}
                 />
             ))}
-             {/* Splash Sprites at Bottom */}
-             <div className="absolute bottom-0 w-full h-16">
-                {[...Array(20)].map((_, i) => (
-                    <div 
-                        key={`splash-${i}`}
-                        className="absolute bottom-4 w-3 h-3 bg-white rounded-full animate-ping"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            animationDuration: '0.6s',
-                            animationDelay: `${Math.random()}s`,
-                            opacity: 0.8
-                        }}
-                    />
-                ))}
-             </div>
         </div>
       )}
 
@@ -203,15 +171,13 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                       width: `${flake.size}px`,
                       height: `${flake.size}px`,
                       opacity: flake.opacity,
-                      boxShadow: '0 0 8px white',
                       animationDuration: `${flake.duration}s`,
                       animationDelay: `${flake.delay}s`
                   }}
               />
             ))}
             {/* Ground Snow Layer */}
-            <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white via-white/80 to-transparent blur-md opacity-90" />
-            <div className="absolute bottom-[-10px] left-[-10%] w-[120%] h-16 bg-white rounded-t-[50%] blur-xl opacity-60" />
+            <div className="absolute bottom-0 left-0 w-full h-8 bg-white/80 blur-sm" />
         </div>
       )}
 
@@ -225,11 +191,9 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
         .animate-rain-fall { animation-name: rain-fall; animation-timing-function: linear; animation-iteration-count: infinite; }
         .animate-snow-fall { animation-name: snow-fall; animation-timing-function: linear; animation-iteration-count: infinite; }
         .animate-wind-blow { animation-name: wind-blow; animation-timing-function: linear; animation-iteration-count: infinite; }
-        .animate-debris-fly { animation-name: debris-fly; animation-timing-function: linear; animation-iteration-count: infinite; }
         .animate-lightning-strike { animation: lightning-strike 5s infinite; }
-        .animate-fog-drift { animation: fog-drift 20s ease-in-out infinite alternate; }
-        .animate-fog-drift-slow { animation: fog-drift-slow 30s ease-in-out infinite alternate; }
         .animate-wave-fast { animation: wave 5s linear infinite; }
+        .animate-wave-slow { animation: wave 20s linear infinite; }
 
         /* Keyframes */
         @keyframes rain-fall {
@@ -249,24 +213,10 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
             90% { opacity: 1; }
             100% { transform: translateX(120vw); opacity: 0; }
         }
-        @keyframes debris-fly {
-            0% { transform: translateX(0) rotate(0deg); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateX(120vw) rotate(720deg); opacity: 0; }
-        }
         @keyframes lightning-strike {
             0%, 90%, 93%, 96%, 100% { opacity: 0; }
             91%, 94% { opacity: 0.9; }
             92%, 95% { opacity: 0.3; }
-        }
-        @keyframes fog-drift {
-            0%, 100% { transform: translateX(-2%) scale(1.1); }
-            50% { transform: translateX(2%) scale(1.15); }
-        }
-        @keyframes fog-drift-slow {
-            0%, 100% { transform: translateX(2%) scale(1.1); }
-            50% { transform: translateX(-2%) scale(1.15); }
         }
         @keyframes wave {
             0% { transform: translateX(0); }
