@@ -193,11 +193,17 @@ const App: React.FC = () => {
 
   const handleTouchMove = (e: React.TouchEvent) => {
      if (!touchStartRef.current) return;
-     const diffX = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
-     const diffY = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
-     // If moved more than 10px, consider it a gesture/swipe
-     if (diffX > 10 || diffY > 10) {
-         isSwipeRef.current = true;
+     
+     const diffX = e.touches[0].clientX - touchStartRef.current.x;
+     const diffY = e.touches[0].clientY - touchStartRef.current.y;
+     
+     // 1. Detect if movement is significantly horizontal (swipe candidate)
+     if (Math.abs(diffX) > Math.abs(diffY)) {
+        // Prevent default browser behavior (navigating back/forward) only for horizontal moves
+        if (Math.abs(diffX) > 10) {
+            // e.preventDefault(); // Note: React SyntheticEvent might not support this directly in all setups, but worth trying if passive is false
+            isSwipeRef.current = true;
+        }
      }
   };
 
@@ -208,13 +214,18 @@ const App: React.FC = () => {
          const touchEndX = e.changedTouches[0].clientX;
          const diffX = touchEndX - touchStartRef.current.x;
          
-         // Threshold for Swipe: 50px
+         // Threshold for Swipe: 50px (kept same, but logic refined)
          if (Math.abs(diffX) > 50) {
              const direction = diffX < 0 ? 1 : -1; // < 0 is Swipe Left (Next), > 0 is Swipe Right (Prev)
              cycleMode(direction);
          }
      }
-     touchStartRef.current = null;
+     
+     // Debounce clearing ref to prevent accidental taps firing immediately after swipe
+     setTimeout(() => {
+        touchStartRef.current = null;
+        isSwipeRef.current = false;
+     }, 100);
   };
 
   const cycleMode = (direction: number) => {
@@ -232,13 +243,14 @@ const App: React.FC = () => {
   const handleScreenTap = () => {
     // If it was a swipe gesture, ignore the tap/click event
     if (isSwipeRef.current) {
-        isSwipeRef.current = false; 
         return;
     }
 
     const now = Date.now();
-    // Double tap or specific tap logic
-    if (now - lastTap < 500) setShowSettings(true);
+    // Double tap to open settings
+    if (now - lastTap < 500) {
+        setShowSettings(true);
+    }
     setLastTap(now);
   };
 

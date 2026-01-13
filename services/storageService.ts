@@ -1,6 +1,7 @@
+
 import { AppConfig, DEFAULT_CONFIG } from '../types';
 
-const STORAGE_KEY = 'radical_clock_config_v4';
+const STORAGE_KEY = 'radical_clock_config_v5'; // Bumped version to force cache wipe on update
 
 export const saveConfig = (config: AppConfig): void => {
   try {

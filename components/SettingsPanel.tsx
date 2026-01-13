@@ -88,13 +88,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, onSave, onClose, 
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-20">
+      <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-40">
         
         {/* Force Mode Bar */}
         <div className="bg-white/10 p-4 rounded-lg border border-white/20">
-            <label className="block mb-2 text-white/70 text-sm font-bold uppercase">Manual Override / Force Mode</label>
-            <div className="text-xs text-white/40 mb-2">Forces mode until next scheduled change.</div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <label className="block mb-2 text-white/70 text-sm font-bold uppercase">Manual Override</label>
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 <ForceBtn label="SLEEP" color="bg-red-900" isActive={activeMode === ClockState.SLEEP} onClick={() => onPreview(ClockState.SLEEP)} />
                 <ForceBtn label="QUIET" color="bg-yellow-900" isActive={activeMode === ClockState.QUIET} onClick={() => onPreview(ClockState.QUIET)} />
                 <ForceBtn label="WAKE" color="bg-green-900" isActive={activeMode === ClockState.WAKE} onClick={() => onPreview(ClockState.WAKE)} />
@@ -118,21 +117,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, onSave, onClose, 
                     <div className="bg-black/40 p-3 rounded border border-blue-900/50">
                         <div className="flex justify-between items-center mb-2">
                              <div className="text-blue-300 font-bold text-lg">NAP START</div>
-                             <div className="flex gap-2">
-                                <BigInput value={localConfig.napTime.startHour} onChange={(v) => handleTimeChange('napTime', v, localConfig.napTime.startMinute.toString())} max={23} />
+                             <div className="flex gap-2 items-center">
+                                <StepperInput value={localConfig.napTime.startHour} onChange={(v) => handleTimeChange('napTime', v, localConfig.napTime.startMinute.toString())} max={23} />
                                 <span className="text-white text-2xl self-center">:</span>
-                                <BigInput value={localConfig.napTime.startMinute} onChange={(v) => handleTimeChange('napTime', localConfig.napTime.startHour.toString(), v)} max={59} />
+                                <StepperInput value={localConfig.napTime.startMinute} onChange={(v) => handleTimeChange('napTime', localConfig.napTime.startHour.toString(), v)} max={59} />
                              </div>
                         </div>
                         <div className="flex items-center gap-4 mt-4">
                             <span className="text-blue-300 text-sm font-bold w-24">DURATION</span>
-                            <input 
-                                type="range" min="0" max="180" step="15"
-                                value={localConfig.napDuration}
-                                onChange={(e) => setLocalConfig({...localConfig, napDuration: parseInt(e.target.value)})}
-                                className="flex-1 h-8 accent-blue-400 bg-gray-700 rounded-lg touch-none"
-                            />
-                            <span className="text-white font-mono text-lg w-16 text-right">{localConfig.napDuration}m</span>
+                            <div className="flex-1 flex items-center gap-2">
+                                <button className="w-10 h-10 bg-gray-700 rounded text-white font-bold" onClick={() => setLocalConfig({...localConfig, napDuration: Math.max(0, localConfig.napDuration - 15)})}>-</button>
+                                <span className="text-white font-mono text-lg w-16 text-center">{localConfig.napDuration}m</span>
+                                <button className="w-10 h-10 bg-gray-700 rounded text-white font-bold" onClick={() => setLocalConfig({...localConfig, napDuration: localConfig.napDuration + 15})}>+</button>
+                            </div>
                         </div>
                     </div>
 
@@ -160,9 +157,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, onSave, onClose, 
                          <span className="text-neon-blue font-bold font-vcr">LOCATION OVERRIDE</span>
                          <button 
                             onClick={toggleManualLocation}
-                            className={`w-12 h-6 rounded-full relative transition-colors ${localConfig.location.useManual ? 'bg-neon-blue' : 'bg-gray-600'}`}
+                            className={`w-14 h-8 rounded-full relative transition-colors ${localConfig.location.useManual ? 'bg-neon-blue' : 'bg-gray-600'}`}
                         >
-                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${localConfig.location.useManual ? 'left-7' : 'left-1'}`} />
+                            <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${localConfig.location.useManual ? 'left-7' : 'left-1'}`} />
                         </button>
                      </div>
                      
@@ -174,7 +171,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, onSave, onClose, 
                                      type="number" step="0.0001"
                                      value={localConfig.location.lat}
                                      onChange={(e) => handleLocationChange('lat', e.target.value)}
-                                     className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600"
+                                     className="w-full bg-gray-800 text-white p-3 rounded border border-gray-600 text-lg"
                                  />
                              </div>
                              <div>
@@ -183,7 +180,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, onSave, onClose, 
                                      type="number" step="0.0001"
                                      value={localConfig.location.lng}
                                      onChange={(e) => handleLocationChange('lng', e.target.value)}
-                                     className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600"
+                                     className="w-full bg-gray-800 text-white p-3 rounded border border-gray-600 text-lg"
                                  />
                              </div>
                          </div>
@@ -195,7 +192,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, onSave, onClose, 
                 </div>
                 
                 {/* Demo Mode Toggle */}
-                <div className="mt-8 border-t border-white/20 pt-4">
+                <div className="mt-8 border-t border-white/20 pt-4 pb-12">
                     <div className="flex items-center justify-between bg-gray-800 p-4 rounded border border-gray-600">
                         <div className="flex flex-col">
                             <span className="text-neon-pink font-bold font-pixel text-sm">DEMO MODE</span>
@@ -228,23 +225,34 @@ const ForceBtn = ({ label, color, isActive, onClick }: { label: string, color: s
     </button>
 );
 
-const BigInput = ({ value, onChange, max }: { value: number, onChange: (v: string) => void, max: number }) => (
-    <input 
-        type="number" inputMode="numeric" pattern="[0-9]*"
-        min="0" max={max} 
-        value={value.toString().padStart(2, '0')} 
-        onChange={(e) => onChange(e.target.value)} 
-        className="w-16 h-14 bg-gray-800 text-white text-2xl text-center border-2 border-gray-500 rounded focus:border-neon-blue focus:bg-gray-700"
-    />
-);
+const StepperInput = ({ value, onChange, max, min = 0 }: { value: number, onChange: (v: string) => void, max: number, min?: number }) => {
+    const inc = () => {
+        let next = value + 1;
+        if (next > max) next = min;
+        onChange(next.toString());
+    };
+    const dec = () => {
+        let next = value - 1;
+        if (next < min) next = max;
+        onChange(next.toString());
+    };
+
+    return (
+        <div className="flex items-center gap-1">
+            <button onClick={dec} className="w-12 h-12 bg-gray-700 border-2 border-white/50 rounded flex items-center justify-center active:bg-gray-600 active:scale-95 text-xl font-bold text-white touch-manipulation">-</button>
+            <div className="w-16 h-12 bg-gray-800 border-2 border-gray-500 flex items-center justify-center text-2xl font-vcr rounded text-white">{value.toString().padStart(2, '0')}</div>
+            <button onClick={inc} className="w-12 h-12 bg-gray-700 border-2 border-white/50 rounded flex items-center justify-center active:bg-gray-600 active:scale-95 text-xl font-bold text-white touch-manipulation">+</button>
+        </div>
+    )
+}
 
 const TimeInput = ({ label, color, value, onChange }: { label: string, color: string, value: TimeSchedule, onChange: (h: string, m: string) => void }) => (
     <div className="bg-black/40 p-3 rounded border border-white/10 flex items-center justify-between">
       <div className={`text-lg ${color} font-bold`}>{label}</div>
       <div className="flex gap-2 items-center">
-        <BigInput value={value.startHour} onChange={(v) => onChange(v, value.startMinute.toString())} max={23} />
+        <StepperInput value={value.startHour} onChange={(v) => onChange(v, value.startMinute.toString())} max={23} />
         <span className="text-white text-2xl pb-1">:</span>
-        <BigInput value={value.startMinute} onChange={(v) => onChange(value.startHour.toString(), v)} max={59} />
+        <StepperInput value={value.startMinute} onChange={(v) => onChange(value.startHour.toString(), v)} max={59} />
       </div>
     </div>
 );
