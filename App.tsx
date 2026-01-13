@@ -10,7 +10,9 @@ import { AppConfig, ClockState, WeatherData, WeatherCondition } from './types';
 const getMinutes = (h: number, m: number) => h * 60 + m;
 
 const App: React.FC = () => {
-  const [time, setTime] = useState(new Date());
+  // REMOVED: time state (caused re-render every second)
+  // Now we only re-render when config, weather, or clockState changes.
+  
   const [config, setConfig] = useState<AppConfig>(loadConfig());
   
   // State Management
@@ -24,11 +26,9 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Update time loop
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // Swipe Gesture Refs
+  const touchStartRef = useRef<{x: number, y: number} | null>(null);
+  const isSwipeRef = useRef(false);
 
   // Weather Fetch Loop (Real Data)
   useEffect(() => {
@@ -41,9 +41,9 @@ const App: React.FC = () => {
     };
 
     getWeatherData(); // Initial fetch
-    const weatherTimer = setInterval(getWeatherData, 30 * 60 * 1000);
+    const weatherTimer = setInterval(getWeatherData, 30 * 60 * 1000); // 30 mins
     return () => clearInterval(weatherTimer);
-  }, [config.demoMode, config.location]); // Re-fetch if location config changes
+  }, [config.demoMode, config.location]); 
 
   // Demo Mode Loop
   useEffect(() => {
@@ -51,51 +51,11 @@ const App: React.FC = () => {
 
     let step = 0;
     const demoSteps = [
-        // 1. Dawn (Sunrise) - Clear
-        { 
-            condition: WeatherCondition.CLEAR, 
-            temp: 15, 
-            sunriseOffset: -10 * 60 * 1000, 
-            sunsetOffset: 12 * 60 * 60 * 1000, 
-            moonPhase: 0.1, 
-            isDay: true 
-        },
-        // 2. Noon - Windy
-        { 
-            condition: WeatherCondition.WINDY, 
-            temp: 20, 
-            sunriseOffset: -6 * 60 * 60 * 1000, 
-            sunsetOffset: 6 * 60 * 60 * 1000, 
-            moonPhase: 0.25, 
-            isDay: true 
-        },
-        // 3. Dusk (Sunset) - Rain
-        { 
-            condition: WeatherCondition.RAIN, 
-            temp: 18, 
-            sunriseOffset: -12 * 60 * 60 * 1000, 
-            sunsetOffset: 15 * 60 * 1000, 
-            moonPhase: 0.5, 
-            isDay: true 
-        },
-        // 4. Night - Snow (Checking Snow Mode)
-        { 
-            condition: WeatherCondition.SNOW, 
-            temp: -2, 
-            sunriseOffset: 5 * 60 * 60 * 1000, 
-            sunsetOffset: -5 * 60 * 60 * 1000, 
-            moonPhase: 0.75, 
-            isDay: false 
-        },
-        // 5. Night - Storm
-        { 
-            condition: WeatherCondition.STORM, 
-            temp: 10, 
-            sunriseOffset: 3 * 60 * 60 * 1000, 
-            sunsetOffset: -8 * 60 * 60 * 1000, 
-            moonPhase: 0.9, 
-            isDay: false 
-        }
+        { condition: WeatherCondition.CLEAR, temp: 15, sunriseOffset: -10 * 60 * 1000, sunsetOffset: 12 * 60 * 60 * 1000, moonPhase: 0.1, isDay: true },
+        { condition: WeatherCondition.WINDY, temp: 20, sunriseOffset: -6 * 60 * 60 * 1000, sunsetOffset: 6 * 60 * 60 * 1000, moonPhase: 0.25, isDay: true },
+        { condition: WeatherCondition.RAIN, temp: 18, sunriseOffset: -12 * 60 * 60 * 1000, sunsetOffset: 15 * 60 * 1000, moonPhase: 0.5, isDay: true },
+        { condition: WeatherCondition.SNOW, temp: -2, sunriseOffset: 5 * 60 * 60 * 1000, sunsetOffset: -5 * 60 * 60 * 1000, moonPhase: 0.75, isDay: false },
+        { condition: WeatherCondition.STORM, temp: 10, sunriseOffset: 3 * 60 * 60 * 1000, sunsetOffset: -8 * 60 * 60 * 1000, moonPhase: 0.9, isDay: false }
     ];
 
     const runDemoStep = () => {
@@ -112,15 +72,17 @@ const App: React.FC = () => {
         step++;
     };
 
-    runDemoStep(); // Run immediately
-    const demoTimer = setInterval(runDemoStep, 5000); // Change every 5 seconds
+    runDemoStep(); 
+    const demoTimer = setInterval(runDemoStep, 5000); 
 
     return () => clearInterval(demoTimer);
   }, [config.demoMode]);
 
   // Calculate what the schedule says the state SHOULD be
+  // Note: We now instantiate 'new Date()' inside here instead of receiving it as a prop
   const getScheduledState = useCallback(() => {
-    const currentMins = getMinutes(time.getHours(), time.getMinutes());
+    const now = new Date();
+    const currentMins = getMinutes(now.getHours(), now.getMinutes());
     
     // 1. Check Nap Override
     const napStart = getMinutes(config.napTime.startHour, config.napTime.startMinute);
@@ -149,43 +111,53 @@ const App: React.FC = () => {
     }
     
     return active.state;
-  }, [time, config]);
+  }, [config]);
 
-  // Main Effect: Reconcile Schedule, Override, and Active State
+  // Main Logic Loop: Checks schedule every 5 seconds instead of 1 second
+  // This drastically reduces CPU usage on Pi Zero
   useEffect(() => {
-    const scheduled = getScheduledState();
-    
-    // Initialize ref on first run if null
-    if (prevScheduledStateRef.current === null) {
-        prevScheduledStateRef.current = scheduled;
-    }
-
-    // Check if the scheduled state has changed since the last tick
-    if (prevScheduledStateRef.current !== scheduled) {
-        if (overrideState !== null) {
-            console.log("Schedule changed releasing override.");
-            setOverrideState(null);
+    const checkState = () => {
+        const scheduled = getScheduledState();
+        
+        // Initialize ref on first run
+        if (prevScheduledStateRef.current === null) {
+            prevScheduledStateRef.current = scheduled;
         }
-        prevScheduledStateRef.current = scheduled;
-    }
 
-    // Determine Final State
-    const finalState = overrideState || scheduled;
-    
-    if (finalState !== clockState) {
-        setClockState(finalState);
-    }
+        // Check if the scheduled state has changed
+        if (prevScheduledStateRef.current !== scheduled) {
+            if (overrideState !== null) {
+                console.log("Schedule changed releasing override.");
+                setOverrideState(null);
+            }
+            prevScheduledStateRef.current = scheduled;
+        }
 
-    // Update Status Message based on Final State
-    switch(finalState) {
-        case ClockState.SLEEP: setStatusMessage("STAY IN BED"); break;
-        case ClockState.NAP: setStatusMessage("REST & RECHARGE"); break;
-        case ClockState.QUIET: setStatusMessage("QUIET PLAY ONLY"); break;
-        case ClockState.STORY: setStatusMessage("STORY TIME"); break;
-        case ClockState.WAKE: setStatusMessage("SYSTEMS ONLINE"); break;
-    }
+        // Determine Final State
+        const finalState = overrideState || scheduled;
+        
+        // Only trigger react render if state ACTUALLY changed
+        setClockState(prev => {
+            if (prev !== finalState) {
+                // Update message as side effect of state change
+                switch(finalState) {
+                    case ClockState.SLEEP: setStatusMessage("STAY IN BED"); break;
+                    case ClockState.NAP: setStatusMessage("REST & RECHARGE"); break;
+                    case ClockState.QUIET: setStatusMessage("QUIET PLAY ONLY"); break;
+                    case ClockState.STORY: setStatusMessage("STORY TIME"); break;
+                    case ClockState.WAKE: setStatusMessage("SYSTEMS ONLINE"); break;
+                }
+                return finalState;
+            }
+            return prev;
+        });
+    };
 
-  }, [time, config, getScheduledState, overrideState, clockState]);
+    checkState(); // Run immediately
+    const interval = setInterval(checkState, 5000); // Check every 5s
+    return () => clearInterval(interval);
+
+  }, [config, getScheduledState, overrideState]);
 
   const handleSaveConfig = (newConfig: AppConfig) => {
     setConfig(newConfig);
@@ -207,10 +179,63 @@ const App: React.FC = () => {
     setOverrideState(state);
   };
 
+  // --- TOUCH / GESTURE HANDLERS ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+    };
+    isSwipeRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+     if (!touchStartRef.current) return;
+     const diffX = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
+     const diffY = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
+     // If moved more than 10px, consider it a gesture/swipe
+     if (diffX > 10 || diffY > 10) {
+         isSwipeRef.current = true;
+     }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+     if (!touchStartRef.current) return;
+     
+     if (isSwipeRef.current) {
+         const touchEndX = e.changedTouches[0].clientX;
+         const diffX = touchEndX - touchStartRef.current.x;
+         
+         // Threshold for Swipe: 50px
+         if (Math.abs(diffX) > 50) {
+             const direction = diffX < 0 ? 1 : -1; // < 0 is Swipe Left (Next), > 0 is Swipe Right (Prev)
+             cycleMode(direction);
+         }
+     }
+     touchStartRef.current = null;
+  };
+
+  const cycleMode = (direction: number) => {
+    const modes = [ClockState.QUIET, ClockState.WAKE, ClockState.NAP, ClockState.STORY, ClockState.SLEEP];
+    const currentMode = overrideState || clockState;
+    const currentIndex = modes.indexOf(currentMode);
+    
+    let nextIndex = (currentIndex + direction) % modes.length;
+    if (nextIndex < 0) nextIndex = modes.length - 1;
+    
+    setOverrideState(modes[nextIndex]);
+  };
+
   const [lastTap, setLastTap] = useState(0);
   const handleScreenTap = () => {
+    // If it was a swipe gesture, ignore the tap/click event
+    if (isSwipeRef.current) {
+        isSwipeRef.current = false; 
+        return;
+    }
+
     const now = Date.now();
-    if (now - lastTap < 300) setShowSettings(true);
+    // Double tap or specific tap logic
+    if (now - lastTap < 500) setShowSettings(true);
     setLastTap(now);
   };
 
@@ -231,6 +256,9 @@ const App: React.FC = () => {
     <div 
       className="relative w-screen h-screen overflow-hidden cursor-none select-none touch-manipulation"
       onClick={handleScreenTap}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Background (Z-0) with Weather */}
       <WaveBackground clockState={clockState} weather={weather} />
@@ -269,7 +297,8 @@ const App: React.FC = () => {
             </div>
         )}
 
-        <TimeDisplay date={time} />
+        {/* TimeDisplay now handles its own internal timer */}
+        <TimeDisplay />
 
         <div className="mt-4 flex flex-col items-center font-vcr text-white/50 text-xl tracking-widest animate-pulse px-4">
           <div>{statusMessage}</div>

@@ -1,3 +1,4 @@
+
 export enum ClockState {
   SLEEP = 'SLEEP', // Don't wake parents
   QUIET = 'QUIET', // Can play in room
@@ -59,21 +60,21 @@ export interface AppConfig {
 export const DEFAULT_CONFIG: AppConfig = {
   wakeTime: { startHour: 7, startMinute: 0 },
   napTime: { startHour: 13, startMinute: 0 },
-  napDuration: 90, // 1.5 hours default
-  quietTime: { startHour: 15, startMinute: 0 },
-  storyTime: { startHour: 19, startMinute: 0 },
-  sleepTime: { startHour: 19, startMinute: 30 },
+  napDuration: 90, 
+  quietTime: { startHour: 6, startMinute: 30 },
+  storyTime: { startHour: 20, startMinute: 0 },
+  sleepTime: { startHour: 20, startMinute: 30 },
   brightness: {
-    sleep: 5,
-    quiet: 40,
-    wake: 80,
+    sleep: 35,
+    quiet: 54,
+    wake: 100,
     nap: 10,
-    story: 30
+    story: 51
   },
   location: {
     lat: 45.7485, // Lyon 69008
     lng: 4.8706,
-    useManual: true // Default to manual to ensure it works on Pi Zero immediately
+    useManual: true 
   },
   demoMode: false,
 };

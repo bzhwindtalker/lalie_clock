@@ -7,7 +7,7 @@ interface RabbitProps {
   weather: WeatherData | null;
 }
 
-const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
+const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) => {
   const isRain = weather?.condition === WeatherCondition.RAIN || weather?.condition === WeatherCondition.STORM;
   const isSnow = weather?.condition === WeatherCondition.SNOW;
   const isWindy = weather?.condition === WeatherCondition.WINDY;
@@ -223,10 +223,10 @@ const PixelRabbit: React.FC<RabbitProps> = ({ clockState, weather }) => {
             {renderZzz()}
         </div>
 
-        {/* SOFT SHADOW */}
-        <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 w-20 h-3 bg-black/40 rounded-full blur-[4px]" />
+        {/* SOFT SHADOW - Optimized for Pi */}
+        <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 w-20 h-3 bg-black/40 rounded-full" style={{ filter: 'blur(2px)' }} />
     </div>
   );
-};
+});
 
 export default PixelRabbit;

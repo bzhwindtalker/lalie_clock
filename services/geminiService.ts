@@ -1,15 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Ensure API key is available
-const apiKey = process.env.API_KEY || ''; 
-
 export const generateBedtimeStory = async (kidName: string, theme: string): Promise<string> => {
-  if (!apiKey) {
+  if (!process.env.API_KEY) {
     return "Error: No API Key found. The parental overlords forgot to pay the silicon rent.";
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const prompt = `Write a very short, soothing bedtime story (max 100 words) for a child named ${kidName}. The theme is ${theme}. Keep it sweet and sleepy.`;
 

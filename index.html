@@ -2,8 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Radical Clock</title>
+    
+    <!-- Error Trapping Script (Runs before anything else) -->
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var loader = document.getElementById('loader');
+        if (loader) {
+          loader.innerHTML = '<div style="background:red; color:white; padding:20px; text-align:left; font-family:monospace; font-size:14px;">' +
+            '<strong>CRITICAL ERROR</strong><br>' + 
+            msg + '<br>' +
+            '<small>' + (url || 'unknown script') + ':' + line + '</small><br><br>' + 
+            '<em>If network error: Connect Wifi and Reboot.</em>' +
+            '</div>';
+          document.body.style.backgroundColor = 'black'; // Ensure high contrast
+        }
+      };
+      
+      // Check for network immediately
+      if (!navigator.onLine) {
+        window.onload = function() {
+           var loader = document.getElementById('loader');
+           if (loader) loader.innerHTML += '<br><strong style="color:orange">⚠ WARNING: NO INTERNET DETECTED. APP MAY FAIL TO LOAD.</strong>';
+        }
+      }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
     <script>
@@ -89,10 +114,26 @@
     </script>
     <style>
       body {
-        background-color: #000;
-        overflow: hidden; /* Prevent scrolling on small touch screens */
-        user-select: none; /* Prevent selection */
+        background-color: #000 !important; /* Force black immediately */
+        color: #39ff14; /* Neon green text */
+        overflow: hidden; 
+        user-select: none;
         -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none; 
+        cursor: none; 
+        margin: 0;
+        height: 100vh;
+        width: 100vw;
+      }
+      #loader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        font-family: 'Courier New', monospace;
+        text-align: center;
       }
     </style>
   <script type="importmap">
@@ -107,7 +148,15 @@
 </script>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+        <div id="loader">
+            <h1 style="font-size: 2rem; margin-bottom: 1rem;">SYSTEM BOOT</h1>
+            <p>CONNECTING TO NETWORK...</p>
+            <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 2rem;">If stuck here: Check Wifi</p>
+            <!-- Hidden Debug info -->
+            <div id="debug-info" style="display:none; color: gray; font-size: 10px; margin-top: 20px;"></div>
+        </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

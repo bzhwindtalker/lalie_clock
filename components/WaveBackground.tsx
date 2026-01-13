@@ -7,7 +7,7 @@ interface WaveBackgroundProps {
   weather: WeatherData | null;
 }
 
-const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) => {
+const WaveBackground: React.FC<WaveBackgroundProps> = React.memo(({ clockState, weather }) => {
   
   // 1. Base Gradient Config (Dictated by App State for Sleep Training)
   const getGradientConfig = () => {
@@ -53,42 +53,28 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) 
           const totalDay = setTs - riseTs;
           const progress = (nowTs - riseTs) / totalDay; // 0.0 to 1.0
           sunX = progress * 100;
-          // Parabola for Y (0 at ends, -20 at 0.5)
-          // y = 4 * (x - 0.5)^2  -> ranges 0 to 1
-          // We want it high (low %) at 0.5
-          // Input 0 -> 1, 0.5 -> 0, 1 -> 1
           const arc = Math.pow((progress - 0.5) * 2, 2); 
-          sunY = 10 + (arc * 100); // 10% (noon) to 110% (horizon)
+          sunY = 10 + (arc * 100); 
       } else {
           sunY = 150; // Below horizon
       }
 
-      // Moon Logic (Simplified: Opposite of Sun for visualization, though technically complex)
-      // If sun is down, put moon up.
+      // Moon Logic
       if (sunY > 100) {
-          // Night time
-          // Estimate position based on time since sunset or until sunrise
-          // This is a "fake" visual position because real moon rise/set varies wildly
-          // But for a kid's clock, moon at night = good.
-          
           let nightProgress = 0;
           if (nowTs > setTs) {
-             // After sunset, before midnight
-             nightProgress = (nowTs - setTs) / (86400000 / 2); // Rough estimate
+             nightProgress = (nowTs - setTs) / (86400000 / 2);
              if (nightProgress > 0.5) nightProgress = 0.5;
           } else if (nowTs < riseTs) {
-              // After midnight, before sunrise
               nightProgress = 0.5 + ((nowTs - (riseTs - 43200000)) / 43200000);
           }
-          
-          // Force moon to be somewhat visible at night
           moonX = (now.getHours() * 60 + now.getMinutes()) / 1440 * 100;
-          moonY = 20; // High in sky
+          moonY = 20; 
       } else {
           moonY = 150;
       }
   } else {
-      // Fallback Visuals without API
+      // Fallback
       const hour = now.getHours();
       if (hour > 6 && hour < 18) {
           sunY = 20; sunX = ((hour - 6) / 12) * 100;
@@ -99,26 +85,9 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) 
       }
   }
 
-  // Moon Phase Rendering (CSS Masking)
-  // Phase 0 = New, 0.25 = First Quarter, 0.5 = Full, 0.75 = Last Quarter
-  // We need to shift a shadow over the moon disc.
-  
-  // Calculate offset for the "Shadow" circle
-  // Full moon (0.5) -> Shadow is far away. New Moon (0 or 1) -> Shadow covers it.
   const getMoonShadowStyle = (p: number) => {
-      // Normalize 0-1. 
-      // 0.5 is full (white circle).
-      // 0.0 is new (black circle).
-      // Let's simplify: A white circle. A dark circle moves across it.
-      
-      // If phase is 0.5 (Full), we want full visibility.
-      // If phase is 0 (New), we want 0 visibility.
-      
-      // Visual approximation for pixel art style
-      const phaseType = p < 0.5 ? 'waxing' : 'waning'; // Growing vs Shrinking
-      const visiblePercent = 1 - Math.abs((p - 0.5) * 2); // 0 to 1
-
-      // We will render a white circle, and use a clip path or secondary circle to hide part
+      const phaseType = p < 0.5 ? 'waxing' : 'waning';
+      const visiblePercent = 1 - Math.abs((p - 0.5) * 2);
       return { visiblePercent, phaseType };
   };
 
@@ -134,8 +103,8 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) 
       {/* Weather Effects Layer */}
       {weather && <WeatherOverlay condition={weather.condition} />}
 
-      {/* Background Waves */}
-      <div className="absolute inset-0 opacity-60 mix-blend-screen overflow-hidden z-0">
+      {/* Background Waves - Removed mix-blend-screen for Pi Zero */}
+      <div className="absolute inset-0 opacity-40 overflow-hidden z-0">
          <div className="absolute bottom-0 left-0 w-[200%] h-1/2 flex animate-wave-slow">
              <svg className="w-1/2 h-full block" viewBox="0 0 1440 320" preserveAspectRatio="none">
                 <path fill={colors.wave1} fillOpacity="0.6" d="M0,224 C360,180 1080,260 1440,224 L1440,320 L0,320 Z" />
@@ -154,7 +123,7 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) 
          </div>
       </div>
 
-      {/* Stars - Only show if Sun is down or it's SLEEP mode */}
+      {/* Stars */}
       <div 
         className="absolute inset-[-50%] w-[200%] h-[200%] z-0 transition-opacity duration-2000 animate-spin-slow"
         style={{ 
@@ -162,26 +131,26 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) 
             transformOrigin: 'center center' 
         }}
       >
-        {[...Array(50)].map((_, i) => (
+        {[...Array(30)].map((_, i) => ( // Reduced star count
              <div key={i} className="absolute bg-white rounded-full"
               style={{ top: `${Math.random() * 100}%`, left: `${Math.random() * 100}%`, width: `${Math.random() * 2 + 1}px`, height: `${Math.random() * 2 + 1}px` }}
             />
         ))}
       </div>
 
-      {/* SUN */}
+      {/* SUN - Optimized Shadows */}
       <div 
-        className="absolute w-32 h-32 rounded-full blur-md transition-all duration-[5000ms]"
+        className="absolute w-32 h-32 rounded-full transition-all duration-[5000ms]"
         style={{
             background: 'radial-gradient(circle, #fde047 20%, #ea580c 100%)',
-            boxShadow: '0 0 60px #fb923c',
+            boxShadow: '0 0 20px #fb923c', // Reduced blur radius
             top: `${sunY}%`,
             left: `${sunX}%`,
             opacity: sunY > 110 ? 0 : 1
         }}
       />
 
-      {/* MOON */}
+      {/* MOON - Optimized */}
       <div 
         className="absolute w-24 h-24 rounded-full transition-all duration-[5000ms]"
         style={{
@@ -189,21 +158,18 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({ clockState, weather }) 
             left: `${moonX}%`,
             opacity: moonY > 110 ? 0 : 1,
             backgroundColor: 'transparent',
-            // Create phase using box-shadow offset for a "Crescent" look
-            // This is a stylistic simplification for the pixel art aesthetic
             boxShadow: moonVisuals.visiblePercent > 0.9 
-                ? '0 0 40px #ffffff, inset -2px -2px 10px #ddd' // Full Moon Glow
-                : `inset ${moonVisuals.phaseType === 'waxing' ? '10px' : '-10px'} 0px 0px 0px #ffffff` // Crescent
+                ? '0 0 20px #ffffff, inset -2px -2px 10px #ddd' 
+                : `inset ${moonVisuals.phaseType === 'waxing' ? '10px' : '-10px'} 0px 0px 0px #ffffff`
         }}
       >
-          {/* Moon Glow only if visible */}
           {moonVisuals.visiblePercent > 0.2 && (
-             <div className="absolute inset-0 rounded-full bg-white opacity-20 blur-xl" />
+             <div className="absolute inset-0 rounded-full bg-white opacity-20" style={{filter: 'blur(8px)'}} /> // Reduced blur
           )}
       </div>
       
     </div>
   );
-};
+});
 
 export default WaveBackground;
