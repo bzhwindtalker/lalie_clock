@@ -100,10 +100,10 @@ const WaveBackground: React.FC<WaveBackgroundProps> = React.memo(({ clockState, 
         transition: 'background 3s ease'
     }}>
       
-      {/* Weather Effects Layer */}
-      {weather && <WeatherOverlay condition={weather.condition} />}
+      {/* Weather Effects Layer - Passed full weather object */}
+      {weather && <WeatherOverlay weather={weather} />}
 
-      {/* Background Waves - Removed mix-blend-screen for Pi Zero */}
+      {/* Background Waves */}
       <div className="absolute inset-0 opacity-40 overflow-hidden z-0">
          <div className="absolute bottom-0 left-0 w-[200%] h-1/2 flex animate-wave-slow">
              <svg className="w-1/2 h-full block" viewBox="0 0 1440 320" preserveAspectRatio="none">
@@ -131,26 +131,26 @@ const WaveBackground: React.FC<WaveBackgroundProps> = React.memo(({ clockState, 
             transformOrigin: 'center center' 
         }}
       >
-        {[...Array(30)].map((_, i) => ( // Reduced star count
+        {[...Array(30)].map((_, i) => ( 
              <div key={i} className="absolute bg-white rounded-full"
               style={{ top: `${Math.random() * 100}%`, left: `${Math.random() * 100}%`, width: `${Math.random() * 2 + 1}px`, height: `${Math.random() * 2 + 1}px` }}
             />
         ))}
       </div>
 
-      {/* SUN - Optimized Shadows */}
+      {/* SUN */}
       <div 
         className="absolute w-32 h-32 rounded-full transition-all duration-[5000ms]"
         style={{
             background: 'radial-gradient(circle, #fde047 20%, #ea580c 100%)',
-            boxShadow: '0 0 20px #fb923c', // Reduced blur radius
+            boxShadow: '0 0 20px #fb923c', 
             top: `${sunY}%`,
             left: `${sunX}%`,
             opacity: sunY > 110 ? 0 : 1
         }}
       />
 
-      {/* MOON - Optimized */}
+      {/* MOON */}
       <div 
         className="absolute w-24 h-24 rounded-full transition-all duration-[5000ms]"
         style={{
@@ -164,7 +164,7 @@ const WaveBackground: React.FC<WaveBackgroundProps> = React.memo(({ clockState, 
         }}
       >
           {moonVisuals.visiblePercent > 0.2 && (
-             <div className="absolute inset-0 rounded-full bg-white opacity-20" style={{filter: 'blur(8px)'}} /> // Reduced blur
+             <div className="absolute inset-0 rounded-full bg-white opacity-20" style={{filter: 'blur(8px)'}} /> 
           )}
       </div>
       

@@ -10,7 +10,7 @@ interface RabbitProps {
 const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) => {
   const isRain = weather?.condition === WeatherCondition.RAIN || weather?.condition === WeatherCondition.STORM;
   const isSnow = weather?.condition === WeatherCondition.SNOW;
-  const isWindy = weather?.condition === WeatherCondition.WINDY;
+  const isWindy = weather?.isWindy || false; // Updated to check boolean
 
   // Animation State
   const [frameIdx, setFrameIdx] = useState(0);
@@ -69,17 +69,12 @@ const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) 
         let nextAction: typeof action = 'IDLE';
         
         // Vertical Wander & Depth Logic
-        // Expanded range (10-45%) to allow clear distinction between foreground/background
         const newY = Math.max(10, Math.min(45, posY + (Math.random() * 12 - 6)));
         setPosY(newY);
-
-        // Depth Logic: Higher Y (further up screen) = Background (z-20), Lower Y = Foreground (z-40)
-        // Threshold at 30% from bottom
         const newZ = newY > 30 ? 20 : 40;
         setZIndex(newZ);
 
         // Collision Avoidance Logic
-        // Text approximates center 30-70% X.
         const inTextZone = posX > 25 && posX < 75;
         const isInFront = newZ === 40;
 
@@ -120,12 +115,10 @@ const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) 
 
            // Force move if idling in front of text
            if (isInFront && inTextZone && nextAction === 'IDLE') {
-               // 80% chance to force hop if blocking text
                if (Math.random() < 0.8) {
                    nextAction = 'HOP';
-                   // Bias direction away from center
-                   if (posX > 50) setDirection(1); // Go right
-                   else setDirection(-1); // Go left
+                   if (posX > 50) setDirection(1); 
+                   else setDirection(-1); 
                }
            }
         }
@@ -141,7 +134,6 @@ const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) 
       if (isMoving) {
          if (action === 'HOP' || action === 'SNOW') {
              const currentFrame = frameIdx % 4; // 4 frames animation loop
-             // Move on certain frames
              if (currentFrame === 1 || currentFrame === 3) { 
                  setPosX(prev => Math.min(95, Math.max(5, prev + (direction * 1.5))));
              }
@@ -184,8 +176,6 @@ const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) 
   };
 
   const sprite = getCurrentSprite();
-  
-  // Adjust container width for wider sprites
   const widthRatio = (action === 'IDLE' || action === 'LOVE' || action === 'SNOWMAN') ? '180px' : '240px'; 
   const heightRatio = '240px'; 
 
@@ -214,16 +204,15 @@ const PixelRabbit: React.FC<RabbitProps> = React.memo(({ clockState, weather }) 
             height: heightRatio
         }}
     >
-        {/* SPRITE CONTAINER */}
         <div 
           className="relative w-full h-full"
-          style={{ transform: `scaleX(${direction})` }} // Flip X for direction
+          // CRITICAL FIX: If action is KITE, force scaleX(1) so kite always flies with the fixed wind (Left -> Right)
+          // Otherwise, use the calculated direction.
+          style={{ transform: `scaleX(${action === 'KITE' ? 1 : direction})` }} 
         >
             {renderSprite(sprite)}
             {renderZzz()}
         </div>
-
-        {/* SOFT SHADOW - Optimized for Pi */}
         <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 w-20 h-3 bg-black/40 rounded-full" style={{ filter: 'blur(2px)' }} />
     </div>
   );

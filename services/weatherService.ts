@@ -1,7 +1,7 @@
 import { WeatherData, WeatherCondition, LocationConfig } from '../types';
 
 // WMO Weather interpretation codes (https://open-meteo.com/en/docs)
-const getWeatherCondition = (code: number, windSpeed: number): WeatherCondition => {
+const getWeatherCondition = (code: number): WeatherCondition => {
   // Priority to dangerous/precipitating conditions
   if (code >= 95 && code <= 99) return WeatherCondition.STORM;
   if (code >= 71 && code <= 77) return WeatherCondition.SNOW;
@@ -9,14 +9,24 @@ const getWeatherCondition = (code: number, windSpeed: number): WeatherCondition 
   if (code >= 51 && code <= 67) return WeatherCondition.RAIN;
   if (code >= 80 && code <= 82) return WeatherCondition.RAIN;
   
-  // High winds override clear/cloudy if significant
-  if (windSpeed > 25) return WeatherCondition.WINDY;
-
+  // Code 0, 1: Clear / Mainly Clear
   if (code === 0 || code === 1) return WeatherCondition.CLEAR;
-  if (code === 2 || code === 3) return WeatherCondition.CLOUDY;
+
+  // Code 2: Partly Cloudy
+  if (code === 2) return WeatherCondition.PARTLY_CLOUDY;
+  
+  // Code 3: Overcast
+  if (code === 3) return WeatherCondition.CLOUDY;
+  
   if (code >= 45 && code <= 48) return WeatherCondition.FOG;
   
   return WeatherCondition.CLEAR;
+};
+
+const getCardinalDirection = (angle: number): string => {
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round(angle / 22.5) % 16;
+  return directions[index];
 };
 
 const getCoordinates = async (config?: LocationConfig): Promise<{lat: number, lng: number} | null> => {
@@ -74,14 +84,11 @@ export const fetchWeather = async (locationConfig?: LocationConfig): Promise<Wea
 
         if (isNaN(lat) || isNaN(lng)) throw new Error("Invalid coordinates");
 
-        // Removed 'moon_phase_illumination' as it can cause 400 Bad Request on some API versions/tiers
-        // We calculate moon phase manually anyway.
         const response = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,is_day,wind_speed_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1`
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1`
         );
 
         if (!response.ok) {
-            // Log the body for debugging if possible
             const errorText = await response.text().catch(() => "No error body");
             console.error(`Weather API Error: ${response.status} ${response.statusText}`, errorText);
             throw new Error(`API responded with ${response.status}`);
@@ -89,7 +96,6 @@ export const fetchWeather = async (locationConfig?: LocationConfig): Promise<Wea
 
         const data = await response.json();
         
-        // Validate response structure
         if (!data.current || !data.daily) {
             throw new Error("Invalid API response structure");
         }
@@ -97,6 +103,14 @@ export const fetchWeather = async (locationConfig?: LocationConfig): Promise<Wea
         const current = data.current;
         const daily = data.daily;
         const windSpeed = current.wind_speed_10m || 0;
+        const windDir = current.wind_direction_10m || 0;
+
+        // Decoupled Logic:
+        // 1. Determine sky condition based purely on code (Clear, Partly, Cloudy, Rain...)
+        const skyCondition = getWeatherCondition(current.weather_code);
+
+        // 2. Determine wind flag based on speed (> 18km/h)
+        const isWindy = windSpeed > 18;
 
         // Fallback: Calculate moon phase based on date
         const getMoonPhase = (date: Date) => {
@@ -119,20 +133,21 @@ export const fetchWeather = async (locationConfig?: LocationConfig): Promise<Wea
         const moonPhase = getMoonPhase(new Date());
 
         return {
-          condition: getWeatherCondition(current.weather_code, windSpeed),
+          condition: skyCondition,
           temp: current.temperature_2m,
           sunrise: new Date(daily.sunrise[0]),
           sunset: new Date(daily.sunset[0]),
           moonPhase: moonPhase,
-          isDay: current.is_day === 1
+          isDay: current.is_day === 1,
+          isWindy: isWindy,
+          windSpeed: Math.round(windSpeed),
+          windDir: getCardinalDirection(windDir)
         };
 
     } catch (error) {
         console.error("Error fetching weather, using fallback data:", error);
         
-        // Return a safe "Offline" weather state so UI doesn't break
         const now = new Date();
-        // Assume day between 7am and 8pm if we can't check
         const isDay = now.getHours() >= 7 && now.getHours() < 20;
         
         return {
@@ -141,7 +156,10 @@ export const fetchWeather = async (locationConfig?: LocationConfig): Promise<Wea
              sunrise: new Date(now.setHours(7, 0, 0, 0)),
              sunset: new Date(now.setHours(20, 0, 0, 0)),
              moonPhase: 0.5,
-             isDay: isDay
+             isDay: isDay,
+             isWindy: false,
+             windSpeed: 5,
+             windDir: 'N'
         };
     }
 };

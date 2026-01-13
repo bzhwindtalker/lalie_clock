@@ -1,44 +1,48 @@
 import React, { useMemo } from 'react';
-import { WeatherCondition } from '../types';
+import { WeatherCondition, WeatherData } from '../types';
 
 interface WeatherOverlayProps {
-  condition: WeatherCondition;
+  weather: WeatherData;
 }
 
-const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition }) => {
-  if (condition === WeatherCondition.CLEAR) return null;
+const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ weather }) => {
+  const { condition, isWindy } = weather;
+
+  // Determine Cloud Quantity based on sky condition
+  let cloudCount = 0;
+  if (condition === WeatherCondition.PARTLY_CLOUDY) cloudCount = 3;
+  else if (condition === WeatherCondition.CLOUDY || condition === WeatherCondition.FOG || condition === WeatherCondition.WINDY) cloudCount = 6;
+  else if (condition === WeatherCondition.RAIN || condition === WeatherCondition.STORM || condition === WeatherCondition.SNOW) cloudCount = 8;
 
   // --- PRE-CALCULATE PARTICLE DATA ---
-  // OPTIMIZED FOR RASPBERRY PI ZERO 2W
-  // drastically reduced counts to prevent GPU hang
-
-  // CLOUDS: Seamless loop
+  
+  // CLOUDS: Dynamic based on count
   const cloudData = useMemo(() => {
-    const cloudCount = 4; // Reduced from 8
+    if (cloudCount === 0) return [];
     return Array.from({ length: cloudCount }).map((_, i) => ({
       id: i,
       left: (i * (100 / cloudCount)) + (Math.random() * 5), 
       top: 5 + Math.random() * 25,
       scale: 0.8 + Math.random() * 0.4,
-      opacity: 0.8 + Math.random() * 0.2,
+      opacity: condition === WeatherCondition.PARTLY_CLOUDY ? 0.6 : 0.9, // More transparent if partly
       type: Math.random() > 0.5 ? 'fluffy' : 'flat'
     }));
-  }, []);
+  }, [cloudCount, condition]);
 
   // RAIN
   const rainData = useMemo(() => {
-    return Array.from({ length: 40 }).map((_, i) => ({ // Reduced from 150
+    return Array.from({ length: 40 }).map((_, i) => ({ 
       id: i,
       left: Math.random() * 100,
       delay: -(Math.random() * 2), 
-      duration: 0.5 + Math.random() * 0.3, // Faster fall
+      duration: 0.5 + Math.random() * 0.3, 
       opacity: 0.6 + Math.random() * 0.4
     }));
   }, []);
 
   // SNOW
   const snowData = useMemo(() => {
-    return Array.from({ length: 25 }).map((_, i) => ({ // Reduced from 100
+    return Array.from({ length: 25 }).map((_, i) => ({ 
       id: i,
       left: Math.random() * 100,
       size: 4 + Math.random() * 4,
@@ -48,25 +52,21 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
     }));
   }, []);
 
-  // WIND
+  // WIND - Decoupled from sky condition
   const windData = useMemo(() => {
-    return Array.from({ length: 8 }).map((_, i) => ({ // Reduced from 25
+    return Array.from({ length: 8 }).map((_, i) => ({ 
       id: i,
       top: Math.random() * 80 + 10,
-      width: 150 + Math.random() * 250, // Longer streaks
+      width: 150 + Math.random() * 250, 
       delay: -(Math.random() * 5),
       duration: 0.5 + Math.random() * 1.0,
       opacity: 0.3 + Math.random() * 0.3
     }));
   }, []);
 
-  // --- RENDER HELPERS ---
-
   const renderCloudShape = (type: string) => (
     <div className="relative">
-       {/* Main Body */}
        <div className="absolute w-32 h-12 bg-white rounded-full blur-[2px]" />
-       {/* Fluffs - simplified for performance */}
        <div className="absolute -top-6 left-4 w-16 h-16 bg-white rounded-full blur-[2px]" />
        <div className="absolute -top-4 left-14 w-12 h-12 bg-white rounded-full blur-[2px]" />
     </div>
@@ -75,15 +75,14 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
   return (
     <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden select-none">
       
-      {/* ATMOSPHERIC FOG - Simplified for Pi */}
+      {/* ATMOSPHERIC FOG */}
       {condition === WeatherCondition.FOG && (
         <div className="absolute inset-0 z-20 overflow-hidden bg-white/20" />
       )}
 
       {/* CLOUDS - Seamless Scrolling */}
-      {(condition === WeatherCondition.CLOUDY || condition === WeatherCondition.RAIN || condition === WeatherCondition.STORM || condition === WeatherCondition.SNOW || condition === WeatherCondition.FOG || condition === WeatherCondition.WINDY) && (
-        <div className={`absolute top-0 left-0 w-[200%] h-full z-0 pointer-events-none ${condition === WeatherCondition.WINDY ? 'animate-wave-fast' : 'animate-wave-slow'}`}>
-           {/* FIRST SET (0-50%) */}
+      {cloudCount > 0 && (
+        <div className={`absolute top-0 left-0 w-[200%] h-full z-0 pointer-events-none ${isWindy ? 'animate-wave-fast' : 'animate-wave-slow'}`}>
            {cloudData.map((cloud) => (
              <div 
                 key={`c1-${cloud.id}`} 
@@ -98,7 +97,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                 {renderCloudShape(cloud.type)}
              </div>
            ))}
-           {/* DUPLICATE SET (50-100%) */}
+           {/* DUPLICATE SET FOR LOOPING */}
            {cloudData.map((cloud) => (
              <div 
                 key={`c2-${cloud.id}`} 
@@ -116,8 +115,8 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
         </div>
       )}
 
-      {/* WIND VISUALIZATION */}
-      {condition === WeatherCondition.WINDY && (
+      {/* WIND VISUALIZATION - Decoupled */}
+      {isWindy && (
         <div className="absolute inset-0 z-30 overflow-hidden">
             {windData.map((line) => (
                <div 
@@ -125,7 +124,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                  className="absolute h-1 bg-white/30 rounded-full animate-wind-blow"
                  style={{
                     top: `${line.top}%`,
-                    left: '-20%', // Start off screen
+                    left: '-400px', // Start off screen Left
                     width: `${line.width}px`,
                     opacity: line.opacity,
                     animationDuration: `${line.duration}s`,
@@ -136,7 +135,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
         </div>
       )}
 
-      {/* RAIN SYSTEM - High Visibility */}
+      {/* RAIN SYSTEM */}
       {(condition === WeatherCondition.RAIN || condition === WeatherCondition.STORM) && (
         <div className="absolute inset-0 z-30 overflow-hidden">
             {rainData.map((drop) => (
@@ -145,11 +144,10 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                     className="absolute bg-cyan-400 rounded-full animate-rain-fall"
                     style={{
                         left: `${drop.left}%`,
-                        top: '-10%', // Start slightly above viewport to ensure animation entry
+                        top: '-10%', 
                         width: '3px', 
                         height: '30px', 
                         opacity: drop.opacity,
-                        // Removed box-shadow for performance on Pi
                         animationDuration: `${drop.duration}s`,
                         animationDelay: `${drop.delay}s`
                     }}
@@ -158,7 +156,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
         </div>
       )}
 
-      {/* SNOW SYSTEM - High Visibility & Ground Layer */}
+      {/* SNOW SYSTEM */}
       {condition === WeatherCondition.SNOW && (
         <div className="absolute inset-0 z-30 overflow-hidden">
             {snowData.map((flake) => (
@@ -176,7 +174,6 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
                   }}
               />
             ))}
-            {/* Ground Snow Layer */}
             <div className="absolute bottom-0 left-0 w-full h-8 bg-white/80 blur-sm" />
         </div>
       )}
@@ -208,6 +205,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
             100% { transform: translateY(120vh) translateX(0) rotate(180deg); }
         }
         @keyframes wind-blow {
+            /* Modified to move Left to Right */
             0% { transform: translateX(0); opacity: 0; }
             10% { opacity: 1; }
             90% { opacity: 1; }
@@ -219,8 +217,9 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = React.memo(({ condition })
             92%, 95% { opacity: 0.3; }
         }
         @keyframes wave {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+            /* Modified to move Left to Right */
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
         }
       `}</style>
     </div>

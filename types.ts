@@ -9,12 +9,13 @@ export enum ClockState {
 
 export enum WeatherCondition {
   CLEAR = 'CLEAR',
+  PARTLY_CLOUDY = 'PARTLY_CLOUDY',
   CLOUDY = 'CLOUDY',
   RAIN = 'RAIN',
   SNOW = 'SNOW',
   STORM = 'STORM',
   FOG = 'FOG',
-  WINDY = 'WINDY'
+  WINDY = 'WINDY' // Kept for legacy fallback, but mostly calculated via boolean now
 }
 
 export interface WeatherData {
@@ -24,6 +25,9 @@ export interface WeatherData {
   sunset: Date;
   moonPhase: number; // 0.0 (New) to 0.5 (Full) to 1.0 (New)
   isDay: boolean;
+  isWindy: boolean;
+  windSpeed: number; // km/h
+  windDir: string;   // N, NE, E, etc.
 }
 
 export interface TimeSchedule {

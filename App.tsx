@@ -51,11 +51,11 @@ const App: React.FC = () => {
 
     let step = 0;
     const demoSteps = [
-        { condition: WeatherCondition.CLEAR, temp: 15, sunriseOffset: -10 * 60 * 1000, sunsetOffset: 12 * 60 * 60 * 1000, moonPhase: 0.1, isDay: true },
-        { condition: WeatherCondition.WINDY, temp: 20, sunriseOffset: -6 * 60 * 60 * 1000, sunsetOffset: 6 * 60 * 60 * 1000, moonPhase: 0.25, isDay: true },
-        { condition: WeatherCondition.RAIN, temp: 18, sunriseOffset: -12 * 60 * 60 * 1000, sunsetOffset: 15 * 60 * 1000, moonPhase: 0.5, isDay: true },
-        { condition: WeatherCondition.SNOW, temp: -2, sunriseOffset: 5 * 60 * 60 * 1000, sunsetOffset: -5 * 60 * 60 * 1000, moonPhase: 0.75, isDay: false },
-        { condition: WeatherCondition.STORM, temp: 10, sunriseOffset: 3 * 60 * 60 * 1000, sunsetOffset: -8 * 60 * 60 * 1000, moonPhase: 0.9, isDay: false }
+        { condition: WeatherCondition.CLEAR, temp: 15, sunriseOffset: -10 * 60 * 1000, sunsetOffset: 12 * 60 * 60 * 1000, moonPhase: 0.1, isDay: true, isWindy: false, windSpeed: 5, windDir: 'N' },
+        { condition: WeatherCondition.WINDY, temp: 20, sunriseOffset: -6 * 60 * 60 * 1000, sunsetOffset: 6 * 60 * 60 * 1000, moonPhase: 0.25, isDay: true, isWindy: true, windSpeed: 45, windDir: 'W' },
+        { condition: WeatherCondition.RAIN, temp: 18, sunriseOffset: -12 * 60 * 60 * 1000, sunsetOffset: 15 * 60 * 1000, moonPhase: 0.5, isDay: true, isWindy: true, windSpeed: 25, windDir: 'SW' },
+        { condition: WeatherCondition.SNOW, temp: -2, sunriseOffset: 5 * 60 * 60 * 1000, sunsetOffset: -5 * 60 * 60 * 1000, moonPhase: 0.75, isDay: false, isWindy: false, windSpeed: 10, windDir: 'NE' },
+        { condition: WeatherCondition.STORM, temp: 10, sunriseOffset: 3 * 60 * 60 * 1000, sunsetOffset: -8 * 60 * 60 * 1000, moonPhase: 0.9, isDay: false, isWindy: true, windSpeed: 60, windDir: 'S' }
     ];
 
     const runDemoStep = () => {
@@ -67,7 +67,10 @@ const App: React.FC = () => {
             sunrise: new Date(now.getTime() + s.sunriseOffset),
             sunset: new Date(now.getTime() + s.sunsetOffset),
             moonPhase: s.moonPhase,
-            isDay: s.isDay
+            isDay: s.isDay,
+            isWindy: s.isWindy,
+            windSpeed: s.windSpeed,
+            windDir: s.windDir
         });
         step++;
     };
@@ -303,8 +306,9 @@ const App: React.FC = () => {
         <div className="mt-4 flex flex-col items-center font-vcr text-white/50 text-xl tracking-widest animate-pulse px-4">
           <div>{statusMessage}</div>
           {weather && (
-             <div className="text-3xl mt-2 text-white/80 font-bold drop-shadow-md">
-               {weather.temp}°C {weather.condition}
+             <div className="text-3xl mt-2 text-white/80 font-bold drop-shadow-md flex flex-col items-center gap-1">
+               <span>{weather.temp}°C {weather.condition}</span>
+               <span className="text-xl opacity-80">💨 {weather.windSpeed}km/h {weather.windDir}</span>
              </div>
           )}
         </div>
